@@ -4,9 +4,9 @@
 export function wordsOf(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s']/gu, " ")
+    .replace(/[^\p{L}\p{N}\s'-]/gu, " ")
     .split(/\s+/)
-    .filter(Boolean);
+    .filter((w) => /[\p{L}\p{N}]/u.test(w));
 }
 
 export const wordCount = (text: string): number => wordsOf(text).length;
@@ -30,5 +30,9 @@ export function cutWords(text: string, maxWords: number): string {
     out = next;
   }
   if (out) return out;
-  return t.split(/\s+/).slice(0, maxWords).join(" ").replace(/[,;:\s]+$/, "");
+  // No whole sentence fits: take whole words, counted the same way the check counts them.
+  const tokens = t.split(/\s+/);
+  let k = 0;
+  while (k < tokens.length && wordCount(tokens.slice(0, k + 1).join(" ")) <= maxWords) k++;
+  return tokens.slice(0, k).join(" ").replace(/[,;:\s]+$/, "");
 }

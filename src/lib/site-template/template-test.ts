@@ -2,6 +2,7 @@ import type { AiProvider } from "@/lib/ai/provider";
 import { parseAnswers } from "./answers";
 import { SECTOR_PRESETS } from "./presets";
 import { SAMPLE_ANSWERS } from "./sample";
+import { SAMPLE_VARIANTS } from "./variants";
 import { writeSite } from "./write";
 
 /**
@@ -21,17 +22,21 @@ export async function runTemplateTest(provider: AiProvider, runs: number, only?:
   const rows: TemplateTestRow[] = [];
   const presets = Object.values(SECTOR_PRESETS).filter((p) => !only || only.includes(p.id));
   for (const preset of presets) {
-    const parsed = parseAnswers(SAMPLE_ANSWERS[preset.id], preset, { colour: "#1f3a34" });
-    if (!parsed.ok) throw new Error(`${preset.label}: sample answers not accepted`);
-    const row: TemplateTestRow = { template: preset.label, passed: 0, runs: count, pencePerSite: 0, problems: [] };
+    // The main sample plus the extra made-up businesses for this template, each written `count` times.
+    const sets = [SAMPLE_ANSWERS[preset.id], ...(SAMPLE_VARIANTS[preset.id] ?? [])];
+    const row: TemplateTestRow = { template: preset.label, passed: 0, runs: count * sets.length, pencePerSite: 0, problems: [] };
     let pence = 0;
-    for (let i = 0; i < count; i++) {
-      const r = await writeSite({ provider, spentPence: 0, maxPence: 300 }, { preset, facts: parsed.facts, look: parsed.look, colour: parsed.colour });
-      pence += r.costPence;
-      if (r.ok) row.passed += 1;
-      else row.problems.push(r.reason, ...(r.issues ?? []).map((x) => x.code));
+    for (const answers of sets) {
+      const parsed = parseAnswers(answers, preset, { colour: "#1f3a34" });
+      if (!parsed.ok) throw new Error(`${preset.label} (${answers.businessName}): answers not accepted`);
+      for (let i = 0; i < count; i++) {
+        const r = await writeSite({ provider, spentPence: 0, maxPence: 300 }, { preset, facts: parsed.facts, look: parsed.look, colour: parsed.colour });
+        pence += r.costPence;
+        if (r.ok) row.passed += 1;
+        else row.problems.push(`${answers.businessName}: ${r.reason}`, ...(r.issues ?? []).map((x) => `${answers.businessName}: ${x.code}`));
+      }
     }
-    row.pencePerSite = Math.round((pence / count) * 100) / 100;
+    row.pencePerSite = Math.round((pence / row.runs) * 100) / 100;
     row.problems = [...new Set(row.problems)];
     rows.push(row);
   }

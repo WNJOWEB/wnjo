@@ -253,7 +253,8 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
 
   // Nothing invented: every price, email, phone number and address in the text must come from the customer.
   // Whatever the customer typed in their own words counts as theirs too: a price, an email or a number they wrote.
-  const knownPrices = new Set([...facts.services.map((s) => s.price).filter(Boolean), ...(theirWords.match(PRICE) ?? [])].map((p) => priceKey(p!)));
+  // A price is the customer's if its number is theirs, so "£140 a night" also covers a bare "£140".
+  const knownPrices = new Set([...facts.services.flatMap((s) => (s.price ? (s.price.match(PRICE) ?? [s.price]) : [])), ...(theirWords.match(PRICE) ?? [])].map((p) => priceKey(p)));
   const knownEmails = new Set([facts.email, ...(theirWords.match(EMAIL) ?? [])].filter(Boolean).map((e) => norm(e!)));
   const knownPhones = new Set([facts.phone, ...(theirWords.match(PHONE) ?? [])].filter(Boolean).map((p) => digits(p!)));
   for (const f of fields) {

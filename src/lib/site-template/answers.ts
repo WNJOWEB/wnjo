@@ -44,9 +44,12 @@ export function parseServicesText(input: string): { services: { name: string; pr
   const errors: string[] = [];
   const seen = new Set<string>();
   for (const line of input.split(/\r?\n/).map((l) => text(l)).filter(Boolean)) {
-    const m = line.match(/^(.+?)\s*(?:[-–—:]\s*£?\s*|£\s*)(\d{1,4}(?:\.\d{1,2})?)$/);
+    // A price may have a comma (£2,900) and a unit after it ("£140 a night"); the unit is kept with the price.
+    const m = line.match(/^(.+?)\s*(?:[-–—:]\s*£?\s*|£\s*)(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d{1,4}(?:\.\d{1,2})?)(\s+(?:a|an|per)\s+[a-z]+(?:\s+[a-z]+)?)?$/i);
     const name = (m ? m[1] : line).replace(/[-–—:\s]+$/, "").trim();
-    const price = m ? `£${Number(m[2]).toFixed(Number(m[2]) % 1 === 0 ? 0 : 2)}` : undefined;
+    const amount = m ? Number(m[2].replace(/,/g, "")) : 0;
+    const unit = m?.[3] ? ` ${m[3].trim().toLowerCase()}` : "";
+    const price = m ? `£${amount.toFixed(amount % 1 === 0 ? 0 : 2)}${unit}` : undefined;
     if (!name) continue;
     if (name.length > FIELD_LIMITS.itemName) {
       errors.push(`"${name.slice(0, 30)}…" is too long. Keep each service under ${FIELD_LIMITS.itemName} characters.`);

@@ -12,8 +12,9 @@ describe("runTemplateTest", () => {
     const r = await runTemplateTest(reply(good), 1);
     expect(r.model).toBe("fake fake-1");
     expect(r.rows).toHaveLength(templates);
-    expect(r.passed).toBe(templates);
-    expect(r.total).toBe(templates);
+    // Four businesses per template (the main sample and three extra), one run each.
+    expect(r.passed).toBe(templates * 4);
+    expect(r.total).toBe(templates * 4);
   });
 
   it("counts a template as not passed when the model's reply can't be used, and says why", async () => {
@@ -24,7 +25,7 @@ describe("runTemplateTest", () => {
 
   it("writes each template no more than three times, and reports the cost per site", async () => {
     const r = await runTemplateTest(reply(good, 2), 9);
-    expect(r.rows.every((row) => row.runs === 3)).toBe(true);
+    expect(r.rows.every((row) => row.runs === 12)).toBe(true);
     expect(r.pencePerSite).toBe(2);
   });
 });
