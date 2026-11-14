@@ -47,19 +47,19 @@ describe("AI website steps", () => {
     expect(calls).toEqual([]);
   });
 
-  it("makes a plan and a preview once Grok is connected, passing a customer's change through", async () => {
-    provider = { name: "xai", model: "m" };
+  it("makes a plan and a preview once the AI is connected, passing a customer's change through", async () => {
+    provider = { name: "anthropic", model: "m" };
     expect((await post({ action: "plan", briefId: ID })).status).toBe(200);
     expect((await post({ action: "preview", briefId: ID, change: "Shorter headline" })).status).toBe(200);
     expect(calls).toEqual(["plan", "preview:Shorter headline"]);
   });
 
   it("rejects an id that isn't one", async () => {
-    provider = { name: "xai", model: "m" };
+    provider = { name: "anthropic", model: "m" };
     expect((await post({ action: "plan", briefId: "nope" })).status).toBe(422);
   });
 
-  it("releases and withdraws without needing Grok, and emails the customer on release", async () => {
+  it("releases and withdraws without needing the AI, and emails the customer on release", async () => {
     expect((await post({ action: "release", previewId: ID })).status).toBe(200);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("owner@cafe.co.uk");

@@ -1,15 +1,15 @@
-# AI quality plan (Grok drafts)
+# AI quality plan (Claude drafts)
 
 Status: proposed, not built. Written 14 November 2026. Quality is judged by checks, not by money.
 
 ## The rule
-Grok drafts the plan and each page. Each page is checked. A page that fails gets another round with the reasons
+Claude (Haiku 5.5) drafts the plan and each page. Each page is checked. A page that fails gets another round with the reasons
 attached, up to 3 rounds. If it still fails, a person sees the page and the reasons. Nothing reaches a customer
 until a person releases the preview.
 
 ## The money ceiling
 - £10 per website, as a safety net against a runaway loop. It is not a quality target.
-- Each draft's real cost is logged, so the ceiling can be set from measured spend once Grok is live.
+- Each draft's real cost is logged, so the ceiling can be set from measured spend once the AI is live.
 
 ## Criteria
 Already in place:
@@ -28,14 +28,14 @@ To build:
 - The writing prompt says: write only from the customer's facts, and never copy phrasing from any site.
 - A copied-wording check compares each draft with a store of phrases from sites we have been asked to avoid, and
   flags any long exact match for a person to review.
-- Sector templates are our own fixed layouts, so Grok fills in the words only.
+- Sector templates are our own fixed layouts, so the model fills in the words only.
 - The free-form plan step (more freedom, more risk) is left for later, after the checks are built.
 
 ## Order of work
 1. Add the criteria checks (coverage, call to action, plain English, length, SEO basics, consistency), with tests.
 2. Add the copied-wording check, with tests.
 3. Add the retry rule (3 rounds, then a person), and the ceiling.
-4. Test against Grok once the key is set, and set the ceiling from the measured cost.
+4. Test against Claude Haiku 5.5 once the key is set, and set the ceiling from the measured cost.
 
 ## Owner decisions
 - Confirm the £10 ceiling.
@@ -60,9 +60,9 @@ The aim is a template good enough that a small, cheap model (Haiku) can finish t
 Measuring a real model: `src/lib/site-template/eval.test.ts` writes every template several times with the configured
 model and reports the pass rate and the cost per site. It does nothing in the normal run. To try Haiku:
 
-    AI_EVAL=1 AI_PROVIDER=anthropic ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-haiku-5-5 \
-    ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS=7 ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS=37 \
-    npx vitest run src/lib/site-template/eval.test.ts
+    AI_EVAL=1 ANTHROPIC_API_KEY=... npx vitest run src/lib/site-template/eval.test.ts
+
+That uses Claude Haiku 5.5 with low thinking, the defaults.
 
 It fails if fewer than 90% of sites pass on the model's own wording (`AI_EVAL_MIN_PASS` changes that). Not run yet: it
 needs an Anthropic key.

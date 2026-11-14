@@ -1,5 +1,5 @@
 /**
- * The words for one page of the website. Grok writes text only: no HTML, no scripts, no links. Our own code lays the
+ * The words for one page of the website. The model writes text only: no HTML, no scripts, no links. Our own code lays the
  * text out in a fixed design when the preview is shown, so nothing the model writes can run in a visitor's browser.
  */
 import { extrasRows } from "@/lib/brief-extras";

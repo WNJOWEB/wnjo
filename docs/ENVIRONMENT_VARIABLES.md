@@ -13,7 +13,7 @@ Never commit real values. Set them in Vercel (Project → Settings → Environme
 | `ENQUIRY_TO_EMAIL` | server only, sensitive | Where enquiries are delivered (never shown on the website) | Set to the owner's inbox |
 | `ENQUIRY_FROM_EMAIL` | server only | Sender address (domain must be verified in Resend) | Set to `WINJO DIGITAL <enquiries@winjodigital.co.uk>` (8 Nov 2026). `winjodigital.co.uk` is verified in Resend. |
 
-Not yet configured, and required by later steps: Stripe test-mode keys, the xAI (Grok) API key, and GitHub App credentials.
+Not yet configured, and required by later steps: Stripe test-mode keys, the Anthropic (Claude) API key (`ANTHROPIC_API_KEY`), and GitHub App credentials.
 
 Rules:
 - Anything prefixed `NEXT_PUBLIC_` is shipped to the browser. Only put public, row-level-security-protected values there.

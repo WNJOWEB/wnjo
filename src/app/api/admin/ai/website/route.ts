@@ -19,8 +19,8 @@ const fail = (status: number, error: string) => NextResponse.json({ error }, { s
 
 /**
  * Staff actions for the AI website steps.
- * - plan: Grok drafts the website plan from the brief.
- * - preview: Grok writes the pages of the latest plan as a draft preview. An optional `change` applies a customer's request.
+ * - plan: the AI drafts the website plan from the brief.
+ * - preview: the AI writes the pages of the latest plan as a draft preview. An optional `change` applies a customer's request.
  * - release: a person sends a draft preview to the customer. Nothing the AI writes reaches a customer without this.
  * - withdraw: takes a released preview back.
  * - link: the private address of a preview, for staff to review it.

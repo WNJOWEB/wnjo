@@ -69,7 +69,7 @@ The owner can always override a failed check when reviewing.
 
 - **Writing step (filling the template):** a small, low-cost model is enough, because the task is short and structured. Haiku-class models are the right choice to test first. Cost target: under 10p per build.
 - **Planning and extraction (turning answers into a build job):** can use the same small model. No code is generated, so no larger model is needed.
-- **The provider is a setting.** Today the code only has an xAI (Grok) provider. Adding an Anthropic (Claude) provider is a small change, and the owner can switch between them without rebuilding.
+- **The provider is Claude (Anthropic), Haiku 5.5 by default.** The owner dropped Grok on 14 November 2026. Only `ANTHROPIC_API_KEY` is required. The model, its thinking level and its prices are settings with defaults, so the model can change without rebuilding.
 - **Claude Code is not used in the loop.** It isn't needed for template filling, and it would be far more expensive per site.
 
 ## Cost
@@ -89,7 +89,7 @@ The owner can always override a failed check when reviewing.
 | Part | Status |
 | --- | --- |
 | Payment, account, goals form, uploads | Built |
-| AI plan and page wording as drafts, spend cap | Built (uses Grok; untested against the live service) |
+| AI plan and page wording as drafts, spend cap | Built (uses Claude; untested against the live service) |
 | Owner review and release, customer revisions | Built |
 | Sector templates (Barber, Café, Electrician) | Missing |
 | Template-driven rendering of a preview | Missing |
@@ -104,7 +104,7 @@ The owner can always override a failed check when reviewing.
 1. **One template, end to end.** Barber only. Build the template, the form for it, the checks, and the preview. Test with three made-up barbers and one real customer's answers (with permission).
 2. **Owner review and revisions.** Connect the admin review and revision loop to the new previews.
 3. **Café and Electrician templates.** Add them, using the same process.
-4. **Model comparison.** Run the same ten builds through Grok and Claude. Compare quality, failures and cost. Pick the default.
+4. **Model check.** Run the template test (`src/lib/site-template/eval.test.ts`) against Haiku, and a larger Claude model if the pass rate is low. Compare quality, failures and cost.
 5. **Customer-facing copy.** Only once the process has passed a real test, write the public description of how it works.
 
 ## Decisions for the owner
@@ -112,7 +112,7 @@ The owner can always override a failed check when reviewing.
 - Which sectors first, if not Barber, Café and Electrician.
 - Whether the owner always reviews every build, or only the first build for each template.
 - Whether a customer can see the template name, or only the finished preview.
-- The first model to test: Haiku-class (cheapest) or the current Grok setup.
+- The model: Claude Haiku 5.5 (decided 14 November 2026). Grok was dropped.
 
 ## Open risks
 

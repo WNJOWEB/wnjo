@@ -21,7 +21,7 @@ Five agents are defined for WNJO. **All are switched off**, and nothing calls a 
 - Budget-setting screens for staff.
 - Background processing of events and tasks now runs after the webhook responds (`after()`). A slow model call still runs inside a single serverless invocation, so long tasks need a proper worker before heavy use.
 - The agent instructions and their version history.
-- Connect the Grok provider once `XAI_API_KEY`, `XAI_MODEL` and the price settings are configured. The adapter has not been checked against the live API.
+- Connect the Claude provider once `ANTHROPIC_API_KEY` is set in Vercel. The adapter has not been checked against the live API.
 
 ## Enabling an agent (when ready)
 Do this for one agent, on a non-production project, first: set the global budget above zero, set a project budget, enable the agent, and watch its runs in the AI tab.

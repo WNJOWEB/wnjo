@@ -29,7 +29,7 @@ const fakeDb = (briefs: { id: string; tenant_id: string; brief?: { goals: string
   }) as never;
 
 describe("automatic first drafts", () => {
-  it("does nothing without a Grok key", async () => {
+  it("does nothing without an AI key", async () => {
     steps.length = 0;
     expect(await runAutoDrafts(fakeDb([{ id: "b1", tenant_id: "t", brief: withGoals }]), null)).toEqual({ attempted: 0, drafted: 0 });
     expect(steps).toEqual([]);

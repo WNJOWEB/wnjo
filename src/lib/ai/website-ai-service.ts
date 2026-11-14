@@ -82,7 +82,7 @@ export async function moveStage(db: SupabaseClient, staff: Actor, brief: BriefRo
   return to;
 }
 
-/** Step 1: Grok reads the brief and drafts the plan. A build waiting at "AI processing" moves on to "Website generation". */
+/** Step 1: the AI reads the brief and drafts the plan. A build waiting at "AI processing" moves on to "Website generation". */
 export async function runPlanStep(db: SupabaseClient, staff: Actor, provider: AiProvider, briefId: string): Promise<ServiceResult<{ version: number; costPence: number }>> {
   const brief = await loadBrief(db, staff, briefId);
   if (!brief) return { ok: false, status: 404, error: "not_found" };
@@ -101,7 +101,7 @@ export async function runPlanStep(db: SupabaseClient, staff: Actor, provider: Ai
   return { ok: true, version: result.value.version, costPence: result.costPence };
 }
 
-/** Step 2: Grok writes the copy for every page of the latest plan, as a draft preview. Nothing is shown to the customer. */
+/** Step 2: the AI writes the copy for every page of the latest plan, as a draft preview. Nothing is shown to the customer. */
 export async function runPreviewStep(
   db: SupabaseClient,
   staff: Actor,

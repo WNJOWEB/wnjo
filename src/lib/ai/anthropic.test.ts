@@ -14,6 +14,21 @@ const clientReturning = (m: Anthropic.Message | Error, seen: Anthropic.MessageCr
 });
 
 describe("anthropicConfigFromEnv", () => {
+  it("needs only the key, and defaults to Haiku 5.5 with low thinking and its published prices, rounded up", () => {
+    expect(anthropicConfigFromEnv({ ANTHROPIC_API_KEY: "k" })).toEqual({
+      apiKey: "k",
+      model: "claude-haiku-5-5",
+      inputPencePerMillionTokens: 8,
+      outputPencePerMillionTokens: 40,
+      effort: "low",
+      maxTokens: 4096,
+    });
+  });
+  it("lets a setting replace each default, and refuses a wrong price", () => {
+    const c = anthropicConfigFromEnv({ ANTHROPIC_API_KEY: "k", ANTHROPIC_MODEL: "m", ANTHROPIC_EFFORT: "high", ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS: "150", ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS: "0" });
+    expect(c).toMatchObject({ model: "m", effort: "high", inputPencePerMillionTokens: 150, outputPencePerMillionTokens: 0 });
+    expect(() => anthropicConfigFromEnv({ ANTHROPIC_API_KEY: "k", ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS: "-1" })).toThrow(/OUTPUT_PENCE/);
+  });
   it("reads the settings, with a default token limit", () => {
     expect(anthropicConfigFromEnv(env)).toMatchObject({ model: "claude-haiku-5-5", inputPencePerMillionTokens: 8, maxTokens: 4096 });
   });

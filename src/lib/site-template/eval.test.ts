@@ -10,10 +10,9 @@ import { writeSite } from "./write";
  * every check, and what each site costs. It does nothing in the normal test run: it needs a real key and spends real
  * money, so it only runs on request.
  *
- *   AI_EVAL=1 AI_PROVIDER=anthropic ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-haiku-5-5 \
- *   ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS=7 ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS=37 \
- *   npx vitest run src/lib/site-template/eval.test.ts
+ *   AI_EVAL=1 ANTHROPIC_API_KEY=... npx vitest run src/lib/site-template/eval.test.ts
  *
+ * That uses Claude Haiku 5.5 with low thinking, the defaults. Set ANTHROPIC_MODEL or ANTHROPIC_EFFORT to try another.
  * AI_EVAL_RUNS (default 3) is how many times each template is written. AI_EVAL_MIN_PASS (default 0.9) is the share of
  * sites that must pass the checks on the model's own wording, without falling back to ours.
  */
@@ -26,7 +25,7 @@ describe.skipIf(!enabled)("the configured model, writing every template", () => 
     "finishes sites that pass the checks, at a cost we can read",
     async () => {
       const provider = providerFromEnv();
-      if (!provider) throw new Error("No model is configured. Set AI_PROVIDER and that provider's settings.");
+      if (!provider) throw new Error("No model is configured. Set ANTHROPIC_API_KEY.");
       const rows: { template: string; passed: number; runs: number; costPence: number; problems: string[] }[] = [];
       for (const preset of Object.values(SECTOR_PRESETS)) {
         const parsed = parseAnswers(SAMPLE_ANSWERS[preset.id], preset, { colour: "#1f3a34" });

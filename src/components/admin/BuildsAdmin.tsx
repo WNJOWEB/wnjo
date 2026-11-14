@@ -718,7 +718,7 @@ type AiPreviewRow = { id: string; version: number; status: "draft" | "released" 
 const pence = (n: number) => `£${(n / 100).toFixed(2)}`;
 
 /**
- * The AI steps for one website: Grok drafts a plan from the brief, then the words for each page, and a person releases
+ * The AI steps for one website: the AI drafts a plan from the brief, then the words for each page, and a person releases
  * the result to the customer. Nothing the AI writes reaches the customer, changes the price or goes live without staff.
  */
 function AiPanel({ client, row, revisions, call, onChanged }: { client: SupabaseClient; row: BriefRow; revisions: RevisionRow[]; call: Call; onChanged: () => void }) {

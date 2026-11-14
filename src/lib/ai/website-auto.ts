@@ -7,9 +7,9 @@ import type { SiteAnswers } from "@/lib/site-template/answers";
 import { runPlanStep, runPreviewStep, type Actor } from "./website-ai-service";
 
 /**
- * The first draft after a payment: for builds waiting at "AI processing" with no plan yet, Grok drafts the plan and then
+ * The first draft after a payment: for builds waiting at "AI processing" with no plan yet, the AI drafts the plan and then
  * the preview. It only ever drafts. A person releases a preview to the customer, so nothing here is seen by a customer.
- * With no Grok key, nothing runs and the builds wait for staff. Bounded per call, so a slow model can't pile up work.
+ * With no AI key, nothing runs and the builds wait for staff. Bounded per call, so a slow model can't pile up work.
  */
 export async function runAutoDrafts(db: SupabaseClient, provider: AiProvider | null, limit = 2): Promise<{ attempted: number; drafted: number }> {
   if (!provider) return { attempted: 0, drafted: 0 };

@@ -49,11 +49,11 @@ describe("SupabaseRunStore", () => {
   it("writes run start, finish and tool calls with the right fields", async () => {
     const { db, calls } = fakeDb({ ai_runs: { data: { id: "r1" } } });
     const store = new SupabaseRunStore(db);
-    expect(await store.startRun({ taskId: "t1", tenantId: "w", attempt: 1, provider: "xai", model: "m" })).toBe("r1");
+    expect(await store.startRun({ taskId: "t1", tenantId: "w", attempt: 1, provider: "anthropic", model: "m" })).toBe("r1");
     await store.finishRun("r1", { status: "failed", inputTokens: 3, outputTokens: 4, costPence: 2, error: "boom" });
     await store.recordToolCall({ runId: "r1", tenantId: "w", tool: "read_project", allowed: false, denialReason: "no", args: { id: "p" } });
     const runInsert = calls.find((c) => c.table === "ai_runs" && c.op === "insert");
-    expect(runInsert?.payload).toMatchObject({ task_id: "t1", attempt: 1, provider: "xai" });
+    expect(runInsert?.payload).toMatchObject({ task_id: "t1", attempt: 1, provider: "anthropic" });
     const finish = calls.find((c) => c.table === "ai_runs" && c.op === "update");
     expect(finish?.payload).toMatchObject({ status: "failed", input_tokens: 3, cost_pence: 2, error: "boom" });
     const tool = calls.find((c) => c.table === "ai_tool_calls");

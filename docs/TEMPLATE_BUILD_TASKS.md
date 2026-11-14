@@ -16,7 +16,7 @@ Working rules: commit locally; push or merge only when the owner says "push" or 
 - Automatic first draft: a paid brief with complete sector answers gets a template build (once), instead of a plan and copy preview.
 - Customer form: sector choice, services and prices, opening hours grid (no pre-filled times), contact, tick-box facts, look and colour, in the post-payment details form (`SiteFields.tsx`).
 - Photos: uploaded images become the hero and gallery, shown through short-lived signed links (`photos.ts`).
-- Claude provider through the official SDK (`src/lib/ai/anthropic.ts`), chosen with `AI_PROVIDER=anthropic` (Grok stays the default). Settings: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS`, `ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS`, optional `ANTHROPIC_EFFORT` and `ANTHROPIC_MAX_TOKENS`. Prices are pence per million tokens (convert from dollars). Not yet run against the live service.
+- Claude provider through the official SDK (`src/lib/ai/anthropic.ts`), the only provider (Grok was removed on 14 November 2026). Only `ANTHROPIC_API_KEY` is required. Optional settings, with defaults: `ANTHROPIC_MODEL` (claude-haiku-5-5), `ANTHROPIC_EFFORT` (low), `ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS` (8), `ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS` (40) and `ANTHROPIC_MAX_TOKENS`. Prices are pence per million tokens (convert from dollars). Not yet run against the live service.
 - The customer's sector questions are hidden until `NEXT_PUBLIC_TEMPLATE_SITES=on` is set in Vercel, so a push cannot expose them.
 - Migration `supabase/migrations/20261112090000_website_site_builds.sql`: applied and checked in the live database (12 Nov).
 - Merged to main (12 Nov, `5fa1f64`). `NEXT_PUBLIC_TEMPLATE_SITES=on` is set in Vercel and redeployed, so customers can see the sector questions.
@@ -34,17 +34,17 @@ Working rules: commit locally; push or merge only when the owner says "push" or 
 
 ## Blocked on the owner
 
-- An AI key in Vercel for any live build: `XAI_*` for Grok, or `AI_PROVIDER=anthropic` with the `ANTHROPIC_*` settings.
+- An AI key in Vercel for any live build: `ANTHROPIC_API_KEY`.
 
 ## Next
 
-1. Model comparison on ten builds (Grok against Claude Haiku). Needs an AI key.
+1. Run the template test against Haiku (`src/lib/site-template/eval.test.ts`). Needs the AI key.
 2. Customer-facing wording about the process, only after a real end-to-end test with a live model.
 3. More sectors, each with a sample build that passes every check. Physio is built (13 Nov): treatments, hours, address, appointment requests, no promises of results or cures, and a registration is only mentioned if the customer ticks it. Not yet: a field for a registration number.
 
 ## Known gaps and risks
 
-- Never run against a live model: reply shape unverified (also true of the existing Grok step).
+- Never run against a live model: reply shape unverified (also true of the existing plan and page steps).
 - The sector questions are only in the post-payment form, not the checkout steps.
 - The new tables and policies have no database-level tests (the migration is unapplied).
 - Hours-in-prose are not checked (the prompt tells the model not to quote times).

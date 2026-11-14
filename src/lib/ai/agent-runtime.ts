@@ -2,7 +2,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiProvider } from "@/lib/ai/provider";
 import { AnthropicProvider, anthropicConfigFromEnv } from "@/lib/ai/anthropic";
-import { XaiProvider, xaiConfigFromEnv } from "@/lib/ai/xai";
 import { runTask, type RunOutcome } from "@/lib/ai/runner";
 import { SupabaseRunStore } from "@/lib/ai/store";
 import { loadBudgetLimits } from "@/lib/ai/budget-loader";
@@ -10,12 +9,12 @@ import { buildReadToolRegistry } from "@/lib/ai/read-tools";
 import type { ToolRegistry } from "@/lib/ai/tools";
 
 /**
- * The model provider, or null when it is not configured. AI_PROVIDER picks "anthropic" (Claude) or "xai" (Grok, the
- * default). Nothing is guessed: missing settings mean no provider.
+ * The model provider, or null when there is no key. Claude (Anthropic) is the only provider: the key is the one
+ * required setting, and the model, its thinking and its prices have defaults. See `anthropic.ts`.
  */
 export function providerFromEnv(env: Record<string, string | undefined> = process.env): AiProvider | null {
   try {
-    return env.AI_PROVIDER?.trim().toLowerCase() === "anthropic" ? new AnthropicProvider(anthropicConfigFromEnv(env)) : new XaiProvider(xaiConfigFromEnv(env));
+    return new AnthropicProvider(anthropicConfigFromEnv(env));
   } catch {
     return null;
   }

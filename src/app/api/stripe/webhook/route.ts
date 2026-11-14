@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (outcome === "retry") return NextResponse.json({ error: "retry" }, { status: 500 });
     if (outcome === "handled") {
       // A paid website gets its first AI draft straight away, after Stripe has its answer. Drafts only: a person
-      // releases a preview to the customer. With no Grok key this does nothing, and staff start the steps by hand.
+      // releases a preview to the customer. With no AI key this does nothing, and staff start the steps by hand.
       after(async () => {
         try {
           await runAutoDrafts(db, providerFromEnv());

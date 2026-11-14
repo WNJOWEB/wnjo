@@ -51,7 +51,7 @@ they can be done. Nothing here is pushed or deployed until the owner says so.
 - [x] **Desktop and phone consistency audit (14 November):** every public page compared at desktop, iPad and phone size. Fixed the sideways scroll on pricing on phones, the missing Continue bar after choosing a plan on desktop, and the homepage section links hidden on phones. Signed-in account and admin screens were not covered.
 - [x] **Hosting-only request flow (14 November):** new page `/build/hosting`, linked from the services and pricing pages. Choose Hosting, Care or Care Plus, say where the website is up to, give details. The price comes from the plan on the server. Tested.
 - [x] **Hosting-only, online payment (14 November):** `/build/hosting` takes payment through Stripe. Database change applied (package codes `hosting`, `care`, `care_plus`). Tested on the live site in Stripe test mode: Care Plus hosting reached Stripe at £220 a month, the payment returned to the hosting confirmation page, the webhook activated the plan (one payment, no ownership milestone) and the owner got one alert after payment and none before. The customer welcome email's layout was checked in Gmail on a phone (owner, 14 November).
-- [x] **Grok context audit (14 November):** the one-off website quote is priced from the tier that fits the pages (Essential £999 for up to 5, Professional £1,999 for up to 10, Premium £2,999 for up to 20), matching the website. Tier page limits are now 5, 10 and 20, the same as the managed plans. The template writer is told the sector rules (such as no promised cures) up front. The older instant-quote calculator keeps its original prices and is no longer used by any customer page.
+- [x] **AI context audit (14 November):** the one-off website quote is priced from the tier that fits the pages (Essential £999 for up to 5, Professional £1,999 for up to 10, Premium £2,999 for up to 20), matching the website. Tier page limits are now 5, 10 and 20, the same as the managed plans. The template writer is told the sector rules (such as no promised cures) up front. The older instant-quote calculator keeps its original prices and is no longer used by any customer page.
 
 ## Before launch
 - [ ] **AI quality checks (see `docs/AI_QUALITY_PLAN.md`):** criteria checks, copied-wording check, retry rule, and a £10 ceiling. Owner to confirm the ceiling and word limits.
@@ -61,7 +61,7 @@ they can be done. Nothing here is pushed or deployed until the owner says so.
   - Live payments: the plan checkout, the deposit and balance, the billing portal, and the webhook's handling of each event, including retries.
   - Public site: visual polish on phone and desktop, the buying path (tiers, hosting, six questions), wording, SEO and AEO markup.
   - Email layout and copy as sent in a real inbox, plus the terms wording for the exit clause.
-  - Grok: the live AI reply shape, once the settings are in.
+  - The AI: the live reply shape, once the key is in.
 
 ## Not started
 
@@ -77,14 +77,15 @@ they can be done. Nothing here is pushed or deployed until the owner says so.
 - [x] **Staff:** expected date set on WNJO-D95245 (20 November, owner confirmed). WNJO-D59321 has no date until its goals arrive, because the 14-day promise counts from then.
 - [x] **Test-mode subscription:** no subscriptions left in the database for the test customer. Confirm in the Stripe test dashboard.
 
-## Grok switch-on (last step before launch)
+## AI switch-on (last step before launch)
+The AI is Claude Haiku 5.5 (owner, 14 November 2026). Grok was dropped and its code removed.
 - [x] Apply migration `20261109190000_website_ai_plans_and_previews.sql` (applied; tables and rules checked).
 - [x] Customer preview permissions locked down: the secret preview address isn't readable from the browser.
 - [x] **Stripe test setup (13 Nov):** the WINJO Digital test account is set up, with the test key and webhook on production and preview. A test order on the site was paid and processed by the webhook. Test customers and subscriptions were removed, and the test product is switched off.
-- [ ] Set `XAI_API_KEY`, `XAI_MODEL`, `XAI_INPUT_PENCE_PER_MILLION_TOKENS` and `XAI_OUTPUT_PENCE_PER_MILLION_TOKENS` in Vercel (optional: `AI_MAX_PENCE_PER_BRIEF`, default 300).
+- [ ] Create an Anthropic API key (console.anthropic.com), add credit, and set `ANTHROPIC_API_KEY` in Vercel, production only, marked sensitive. That is the only required setting: the model (Haiku 5.5), low thinking and the prices have defaults. Optional: `AI_MAX_PENCE_PER_BRIEF` (default 300).
 - [x] Run one test website end to end: pay in test mode, check the plan and preview appear in Admin, view the draft, release it, and open it from the customer account. Confirmed by the owner (already done).
 - [ ] Check the model's reply shape against the live service. The code was only tested against a fake.
-- [ ] **Try a small model on the templates:** run `src/lib/site-template/eval.test.ts` against Haiku (see `docs/AI_QUALITY_PLAN.md`). It reports the pass rate and the cost per site. Needs an Anthropic key.
+- [ ] **Run the template test against Haiku:** `src/lib/site-template/eval.test.ts` (see `docs/AI_QUALITY_PLAN.md`). It reports the pass rate and the cost per site. Needs the Anthropic key.
 
 ## Decisions needed from the owner
 - [x] ICO data protection fee: registered and Direct Debit set up (owner, 12 Nov). Application number C2085772. The ICO sends the registration confirmation within three working days, with the registration number.

@@ -1,7 +1,6 @@
 /**
- * Model provider abstraction. The orchestration engine depends only on this interface, so Grok (xAI) can be
- * added as one implementation, and another provider can replace it later, without changing agent logic.
- * Costs are integer pence.
+ * Model provider abstraction. The orchestration engine depends only on this interface, so the provider (today
+ * Claude, through `anthropic.ts`) can be replaced later without changing agent logic. Costs are integer pence.
  */
 
 export type ProviderMessage = { role: "user" | "assistant" | "tool"; content: string; toolName?: string };

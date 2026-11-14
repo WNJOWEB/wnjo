@@ -1,5 +1,5 @@
 /**
- * The website plan: what Grok is asked to produce from a customer's brief, and how its answer is checked. Pure, so the
+ * The website plan: what the model is asked to produce from a customer's brief, and how its answer is checked. Pure, so the
  * prompt and the checks are tested without a model. The model only writes text. It is never asked about prices,
  * contracts or publishing, and anything it returns outside the shape below is rejected, not repaired.
  */

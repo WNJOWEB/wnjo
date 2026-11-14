@@ -109,14 +109,14 @@ Built in sub-steps, each tested before the next.
 ### 4a. Core engine — built and tested (no credentials needed)
 - Database (migration `20261106270000`): `ai_agents`, `ai_permissions`, `ai_tasks`, `ai_runs`, `ai_tool_calls`, `ai_budget_settings`. Staff can read them; nobody can write them from the browser, so agents can't grant themselves permissions or change their own task status. Clients see nothing. Tested in `supabase/tests/ai_access.sql` (6 checks).
 - Code in `src/lib/ai/`:
-  - `provider.ts`: the model-provider interface. Grok (xAI) will be one implementation of it.
+  - `provider.ts`: the model-provider interface. Claude (Anthropic) is the one implementation of it. Grok was removed on 14 November 2026.
   - `tools.ts`: the tool registry. Tools are registered by name, and each one declares whether it is high-risk.
   - `policy.ts`: permission and budget decisions. Denies by default; high-risk tools need an owner approval; disabled or paused agents do nothing.
   - `runner.ts`: runs one task with bounded attempts, bounded model calls per attempt, a spend limit, and no retry for authentication or invalid-response errors. A runaway tool loop fails the task at once rather than retrying.
 - Tests: `src/lib/ai/engine.test.ts`, 15 checks, all passing. They use a scripted provider and an in-memory store.
 
 ### 4b. Provider, budgets and storage — built, tested against fakes
-- `src/lib/ai/xai.ts`: the Grok provider, using the chat-completions format with function tools. The model name and prices must be configured (`XAI_API_KEY`, `XAI_MODEL`, `XAI_INPUT_PENCE_PER_MILLION_TOKENS`, `XAI_OUTPUT_PENCE_PER_MILLION_TOKENS`); nothing is assumed. Errors are classified as authentication, transient or invalid. **Not verified against the live xAI API**: the request shape follows the common chat-completions format and needs a live check once the key is available.
+- `src/lib/ai/anthropic.ts`: the Claude provider, through the official SDK. Only `ANTHROPIC_API_KEY` is required; the model (Haiku 5.5), thinking level (low) and prices have defaults that settings can override. Errors are classified as authentication, transient or invalid. **Not verified against the live Anthropic API**; it needs a live check once the key is set. (The earlier Grok provider was removed.)
 - `src/lib/ai/budget.ts`: the budget gate. Checks task, agent, project and global limits together, stops at the first limit that would be exceeded, and warns at each warning threshold. 4 tests.
 - `src/lib/ai/store.ts`: the database-backed run store, using the server's secret key. Tested against a fake client only; not yet run against the live database.
 - The runner now waits between transient retries (exponential, up to 30 seconds). Tests use no delay.
@@ -124,7 +124,7 @@ Built in sub-steps, each tested before the next.
 
 ### Not yet built in Phase 4
 - Wiring the budget gate into the runner, and reading `ai_budget_settings` (currently read by nothing).
-- Running the real store and the live provider end to end. This needs the server key and the xAI key.
+- Running the real store and the live provider end to end. This needs the server key and the Anthropic key.
 - The approval queue screens.
 - Event triggers (the event-driven queue), the five agents' instructions, and the morning briefing.
 - Stuck tasks: a task left in `running` for 20 minutes is re-queued (or failed when out of attempts) by the daily sweep. Its old run record stays `running`; a later pass can close those. A long attempt is limited to 8 model calls, so 20 minutes leaves room.
@@ -138,7 +138,7 @@ Built in sub-steps, each tested before the next.
 - `src/lib/briefing.ts`: 07:30 Europe/London scheduling that handles the clock changes (6 tests), and a briefing builder that keeps facts and suggested priorities in separate lists, linked to projects (tested).
 - Migration `20261106280000`: `ai_reports` table, staff read-only. The AI tab shows the latest briefing, or when the next one is due.
 - Not yet built: the server job that gathers the facts from the database and writes the report each morning. It needs the server key, and the scheduling mechanism still needs choosing.
-- Not AI-written yet: the wording is fixed and comes from the facts. Grok can add prose later, once enabled.
+- Not AI-written yet: the wording is fixed and comes from the facts. The model adds prose once the AI is enabled.
 
 ### 4e. Event routing — built, tested
 - `src/lib/ai/events.ts`: maps 11 business events (deposit paid, QA failed, client message, deadline approaching, and others) to the agent tasks they create. Each task has a stable key, so a repeated event never creates duplicate work. An agent's own events never re-trigger that agent, which prevents loops. 6 tests, all passing.
@@ -148,7 +148,7 @@ Built in sub-steps, each tested before the next.
 - Migration `20261107050000`: `ai_events` (one row per business event, unique on tenant and dedupe key, staff read only). Tests: `supabase/tests/ai_events.sql`, 7 checks, passing against the live database.
 - `src/lib/ai/event-worker.ts` plans an event's tasks and queues each one under its dedupe key; only new tasks run. `src/lib/ai/event-processor.ts` marks each event processed, or failed with its error so the sweep retries it (up to 5 attempts).
 - `src/lib/ai/task-queue.ts` and `src/lib/ai/event-store.ts`: the database adapters. The insert-if-new SQL they use was checked live (first insert creates, repeat is ignored, existing row found).
-- `src/lib/ai/agent-runtime.ts` runs queued tasks through the runner with the database store, budget gate and read-only tools. With no Grok key configured, queued tasks are suspended, not run.
+- `src/lib/ai/agent-runtime.ts` runs queued tasks through the runner with the database store, budget gate and read-only tools. With no AI key configured, queued tasks are suspended, not run.
 - Triggers: a Stripe-confirmed deposit records `deposit_paid` and processes it straight away, after the webhook has answered Stripe (`after()` in `/api/stripe/webhook`). A daily sweep (`/api/cron/events`, 07:45 UTC) picks up anything left over. The webhook looks the deposit up on every delivery, so a Stripe retry still records the event.
 - Tests: 11 new unit tests (worker and processor), 123 across the suite, all passing.
 - Not yet done: an end-to-end run with a real event through the real store, which needs the service key in a test environment.
@@ -201,7 +201,7 @@ Built in sub-steps, each tested before the next.
 - The worker (`GET /api/cron/tasks`, bearer `CRON_SECRET`) runs queued tasks for up to 40 seconds per invocation. If work is left, it calls itself again, up to 20 times in a chain. Events, the Stripe webhook and the staff send route also start the worker when a task pauses; the daily cron picks up anything left over.
 - An errored task stays queued for the daily cron and does not start a loop.
 - Tests: 4 new runner tests (pause, resume, total cap, saved steps), 171 across the suite.
-- Not yet run against live model calls. No agent is enabled and no Grok key is set, so nothing has paused in production yet.
+- Not yet run against live model calls. No agent is enabled and no AI key is set, so nothing has paused in production yet.
 
 ### Security advisor fixes — applied (Phase 7)
 - Migration `20261107150000`: two notification trigger functions could be called directly through the API by anonymous visitors. They can no longer be; their triggers still fire (checked live). A helper's search path is now fixed.
@@ -228,7 +228,7 @@ Built in sub-steps, each tested before the next.
 ## Production state
 - `main` fast-forwarded to `845ac72` (the working branch merged, 22 commits) and pushed. Vercel production built from `main` and is READY.
 - Checked live on `www.wnjoweb.co.uk`: `/account` and `/admin` serve (both `noindex`), and the homepage serves. `wnjoweb.co.uk` now returns a 308 redirect to `www`, so the earlier 404 on the bare domain is resolved.
-- Still open: the database test suites in `supabase/tests/` have not been re-run since the latest migrations; the Resend and IONOS keys need rotating; Stripe, xAI and the GitHub App are not connected.
+- Still open: the database test suites in `supabase/tests/` have not been re-run since the latest migrations; the Resend and IONOS keys need rotating; Stripe, the AI key and the GitHub App are not connected.
 
 ### 3g. Staff-side client linking — built, tested
 - Migration `20261107010000`: `client_invites` table (staff read and create for their own agency only, and only for that agency's orders and organisations; no browser edits). `orders.customer_id` may now be empty until a customer claims the order.
@@ -284,18 +284,18 @@ Built in sub-steps, each tested before the next.
 - Tests: 39 new checks across the pay rule, the stage helpers, the enquiry route, the deposit route and the payment handler. Walked through in a browser (phone): standard package, callback and back, bespoke, £999 one-off, and the account deposit card, with the server reply stubbed. **Not yet run against real Stripe test mode.** Production is currently in Stripe test mode (`STRIPE_MODE=test`).
 - Not done: abandoned-checkout reminders beyond the one email; a receipt page that names the build.
 
-## AI website steps: plan and private preview (Phases 4 and 5 of the build journey) — built and tested; needs the Grok key and one migration
+## AI website steps: plan and private preview (Phases 4 and 5 of the build journey) — built and tested; needs the AI key and one migration
 
 A paid website gets a first AI draft, and a person decides what the customer sees. The model only writes text.
 
-- **Plan** (`src/lib/ai/website-plan.ts`): Grok reads the customer's brief and returns a JSON plan (pages, sections, tone, search text, assumptions, questions). The reply is checked strictly: wrong shape, too many pages for the package, repeated pages and HTML are rejected, never repaired. The prompt never mentions prices, contracts or publishing.
-- **Page copy** (`website-content.ts`): for each page of the plan, Grok writes headline, intro, sections and a button label. Text only; links and HTML are stripped. A customer's requested change can be passed in to write the pages again.
+- **Plan** (`src/lib/ai/website-plan.ts`): the model reads the customer's brief and returns a JSON plan (pages, sections, tone, search text, assumptions, questions). The reply is checked strictly: wrong shape, too many pages for the package, repeated pages and HTML are rejected, never repaired. The prompt never mentions prices, contracts or publishing.
+- **Page copy** (`website-content.ts`): for each page of the plan, the model writes headline, intro, sections and a button label. Text only; links and HTML are stripped. A customer's requested change can be passed in to write the pages again.
 - **Pipeline** (`website-pipeline.ts`): one retry when a reply is the wrong shape; a spend cap per website (`AI_MAX_PENCE_PER_BRIEF`, default 300p) checked before every model call; a preview is whole or not saved. Refused keys and busy services give plain messages.
 - **Storage** (migration `20261109190000_website_ai_plans_and_previews.sql`): `website_plans` and `website_previews`. Staff can read them; every write goes through the server. The preview's secret address is not readable from the browser. The migration also adds the `ai` and `expected` history kinds. **Not yet applied to production.** Note: until it is, the "expected by" history line is not recorded (the date still saves).
 - **Private preview page** (`/preview/<secret address>`): the customer's words in a fixed layout, themed from the look they chose. No scripts or links from the model run. Kept out of search, sends no referrer, and a withdrawn preview shows a 404. Staff open a draft through the admin; a customer gets the address only for a released preview, and only if they are the website's owner (`POST /api/briefs/preview`).
 - **Staff panel** (Admin, Website builds, a website, "AI website"): make the plan, write the preview (optionally applying an open customer change), view it, release it to the customer, or withdraw it. Releasing moves the build to "Awaiting customer review" and emails the customer. Routes: `POST /api/admin/ai/website` (plan, preview, release, withdraw, link). Rate limited to 30 a hour per person.
-- **Automatic first draft**: after a website payment is confirmed, and in the daily sweep, any paid website still at "AI processing" with no plan gets a plan and a draft preview (at most 2 per run). With no Grok key it does nothing and staff start the steps by hand.
+- **Automatic first draft**: after a website payment is confirmed, and in the daily sweep, any paid website still at "AI processing" with no plan gets a plan and a draft preview (at most 2 per run). With no AI key it does nothing and staff start the steps by hand.
 - **Human control:** nothing the AI writes reaches a customer, moves a build to customer review, changes a price or goes live without a person. The four approvals before going live are unchanged.
-- **To switch on:** set `XAI_API_KEY`, `XAI_MODEL`, `XAI_INPUT_PENCE_PER_MILLION_TOKENS` and `XAI_OUTPUT_PENCE_PER_MILLION_TOKENS` (and optionally `AI_MAX_PENCE_PER_BRIEF`), and apply the migration. Then do one live run on a test website.
-- Tests: 40 new checks (prompts and checks, pipeline, service rules, routes, automatic drafts, the xAI request shape). All use a fake provider. **Never run against the real xAI service**: the request follows the common chat-completions format and needs one live check once the key is set. The empty tools list is now left out of a request.
+- **To switch on:** set `ANTHROPIC_API_KEY` (and optionally `AI_MAX_PENCE_PER_BRIEF`), and apply the migration. Then do one live run on a test website.
+- Tests: 40 new checks (prompts and checks, pipeline, service rules, routes, automatic drafts, the provider request shape). All use a fake provider. **Never run against the real Anthropic service**: it needs one live check once the key is set. The empty tools list is now left out of a request.
 - Not built: image generation, a visual design beyond the fixed text layout, and AI-applied edits beyond rewriting a page's copy. The older five-agent engine is separate and still switched off.
