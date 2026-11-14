@@ -43,6 +43,8 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
   const [note, setNote] = useState<string | null>(null);
   const [openSite, setOpenSite] = useState<number | null>(null);
   const [view, setView] = useState<"phone" | "desktop">("phone");
+  const [pageCount, setPageCount] = useState(1);
+  const [pageSlug, setPageSlug] = useState("");
   const [rated, setRated] = useState<Record<number, string>>({});
   const [ratingNote, setRatingNote] = useState("");
 
@@ -53,6 +55,7 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
     setNote(null);
     setResult(null);
     setOpenSite(null);
+    setPageSlug("");
     setRated({});
     const token = await tokenOrNull();
     if (!token) {
@@ -63,7 +66,7 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
     const res = await fetch("/api/admin/ai/template-test", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ runs: 1, template }),
+      body: JSON.stringify({ runs: 1, template, pages: pageCount }),
     }).catch(() => null);
     const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
     setRunning(false);
@@ -130,8 +133,8 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
           </button>
         </div>
         {site.content && (
-          <div style={{ maxWidth: view === "phone" ? 390 : "100%", margin: "0 auto", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
-            <SiteRender content={site.content} />
+          <div onClick={(e) => { const a = (e.target as HTMLElement).closest("a"); const h = a?.getAttribute("href"); if (a && h && h.startsWith("#") && site.content?.pages?.length) { e.preventDefault(); setPageSlug(h.slice(1).split("#")[0]); } }} style={{ maxWidth: view === "phone" ? 390 : "100%", margin: "0 auto", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
+            <SiteRender content={site.content} page={pageSlug} pageHref={(slug) => `#${slug}`} />
           </div>
         )}
       </>
@@ -142,6 +145,14 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
     <div className="admin-row-static">
       <h3 className="acct-label">Template test</h3>
       <p className="acct-meta">Pick one template. It writes a website for each of its four made-up businesses, then you can open any of them.</p>
+      <label className="acct-label" htmlFor="page-count">Pages the customer chose</label>
+      <select id="page-count" className="input" value={pageCount} onChange={(e) => setPageCount(Number(e.target.value))} disabled={running}>
+        {[1, 2, 3, 4, 5, 6].map((n) => (
+          <option key={n} value={n}>
+            {n === 1 ? "1 page" : `${n} pages`}
+          </option>
+        ))}
+      </select>
       <label className="acct-label" htmlFor="template-pick">Template</label>
       <select id="template-pick" className="input" value={template} onChange={(e) => setTemplate(e.target.value)} disabled={running}>
         {TEMPLATE_IDS.map((id) => (
@@ -162,7 +173,7 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
           <ul className="admin-list" role="list">
             {result.sites.map((site, i) => (
               <li key={i} className="admin-row-static">
-                <button type="button" className="arrow-link" aria-expanded={openSite === i} onClick={() => setOpenSite(openSite === i ? null : i)}>
+                <button type="button" className="arrow-link" aria-expanded={openSite === i} onClick={() => { setPageSlug(""); setOpenSite(openSite === i ? null : i); }}>
                   {site.business} {site.passed ? "(passed)" : "(not passed)"}
                 </button>
                 {openSite === i && (

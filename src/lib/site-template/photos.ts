@@ -4,7 +4,7 @@
  * website's own brief. Pure, so it can be tested without storage.
  */
 import type { BriefFile } from "@/lib/website-brief";
-import type { GalleryImage, SiteContent } from "./schema";
+import type { GalleryImage, Section, SiteContent } from "./schema";
 
 export const PHOTO_SCHEME = "brief-file:";
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -24,10 +24,12 @@ export function pickPhotos(files: BriefFile[]): { hero?: string; gallery: Galler
   };
 }
 
+const allSections = (content: SiteContent): Section[] => [...content.sections, ...(content.pages ?? []).flatMap((p) => p.sections)];
+
 /** The private files a build refers to, so the page knows what to sign. */
 export function photoRefs(content: SiteContent): string[] {
   const refs: string[] = [];
-  for (const s of content.sections) {
+  for (const s of allSections(content)) {
     if (s.kind === "hero" && s.image && isPhotoRef(s.image)) refs.push(s.image);
     if (s.kind === "gallery") for (const im of s.images) if (isPhotoRef(im.src)) refs.push(im.src);
   }
@@ -40,7 +42,7 @@ export function photoRefs(content: SiteContent): string[] {
  */
 export function resolvePhotos(content: SiteContent, urls: Map<string, string>): { content: SiteContent; heroImage?: string } {
   let heroImage: string | undefined;
-  const sections = content.sections.map((s) => {
+  const fix = (s: Section): Section => {
     if (s.kind === "hero") {
       heroImage = s.image ? urls.get(s.image) : undefined;
       return heroImage ? s : { ...s, variant: "plain" as const };
@@ -49,6 +51,8 @@ export function resolvePhotos(content: SiteContent, urls: Map<string, string>): 
       return { ...s, images: s.images.flatMap((im) => (isPhotoRef(im.src) ? (urls.get(im.src) ? [{ ...im, src: urls.get(im.src)! }] : []) : [im])) };
     }
     return s;
-  });
-  return { content: { ...content, sections }, heroImage };
+  };
+  const sections = content.sections.map(fix);
+  const pages = content.pages?.map((p) => ({ ...p, sections: p.sections.map(fix) }));
+  return { content: { ...content, sections, ...(pages ? { pages } : {}) }, heroImage };
 }

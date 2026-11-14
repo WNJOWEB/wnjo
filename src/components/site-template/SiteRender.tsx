@@ -32,10 +32,6 @@ function hoursText(h: HoursItem): string {
   return h.open ?? "";
 }
 
-function find<K extends Section["kind"]>(content: SiteContent, kind: K): Extract<Section, { kind: K }> | undefined {
-  return content.sections.find((s): s is Extract<Section, { kind: K }> => s.kind === kind);
-}
-
 const ANCHOR_IDS: Partial<Record<Section["kind"], { id: string; fallback: string }>> = {
   services: { id: "services", fallback: "Services" },
   hours: { id: "hours", fallback: "Hours" },
@@ -52,37 +48,73 @@ function navLabel(s: Section): string | null {
   return heading && heading.length <= 16 ? heading : a.fallback;
 }
 
+/** The sections of the page being shown. The home page is the content's own sections. */
+function pageSections(content: SiteContent, slug: string): { sections: Section[]; slug: string } {
+  const page = slug ? content.pages?.find((p) => p.slug === slug) : undefined;
+  return page ? { sections: page.sections, slug: page.slug } : { sections: content.sections, slug: "" };
+}
+
+/** The page whose sections hold the request form, so every "book" button can point there. */
+function bookingSlug(content: SiteContent): string | null {
+  if (content.sections.some((s) => s.kind === "enquiry")) return "";
+  return content.pages?.find((p) => p.sections.some((s) => s.kind === "enquiry"))?.slug ?? null;
+}
+
+/** The link to a page. A preview or staff view can swap it for its own (a tab, `?page=`). */
+export const defaultPageHref = (slug: string) => (slug ? `?page=${slug}` : "?");
+
 /** Where the booking form posts, and what happened the last time it did. Without it the form is inactive (a preview). */
 export type EnquiryProps = { action: string; token: string; state?: "sent" | "error" };
 
-export function SiteRender({ content, heroImage, enquiry }: { content: SiteContent; heroImage?: string; enquiry?: EnquiryProps }) {
+export type SiteRenderProps = {
+  content: SiteContent;
+  heroImage?: string;
+  enquiry?: EnquiryProps;
+  /** The page to show, by slug. Empty or unknown means the home page. */
+  page?: string;
+  /** Builds the link to a page. Defaults to `?page=slug`. */
+  pageHref?: (slug: string) => string;
+};
+
+export function SiteRender({ content, heroImage, enquiry, page = "", pageHref = defaultPageHref }: SiteRenderProps) {
   const { business, theme } = content;
+  const current = pageSections(content, page);
+  const multi = (content.pages?.length ?? 0) > 0;
+  const bookOn = bookingSlug(content);
+  // Every "book" button goes to the form, on this page or on the page that holds it.
+  const bookHref = bookOn === null || bookOn === current.slug ? "#book" : `${pageHref(bookOn)}#book`;
   const colour = HEX.test(theme.colour) ? theme.colour : "#1a1a1a";
   const style = { "--accent": colour, "--on-accent": onColour(colour) } as CSSProperties;
-  const bookable = find(content, "enquiry");
+  const bookable = bookOn === null ? undefined : [...content.sections, ...(content.pages ?? []).flatMap((p) => p.sections)].find((s): s is Extract<Section, { kind: "enquiry" }> => s.kind === "enquiry");
   const photo = safeImage(heroImage);
   // A section that draws nothing (a gallery with no usable pictures) gets no nav link, so no link points at nothing.
-  const nav = content.sections.flatMap((s) => (ANCHOR_IDS[s.kind] && !(s.kind === "gallery" && !s.images.some((im) => safeImage(im.src))) ? [{ id: ANCHOR_IDS[s.kind]!.id, label: navLabel(s)! }] : []));
+  const nav = current.sections.flatMap((s) => (ANCHOR_IDS[s.kind] && !(s.kind === "gallery" && !s.images.some((im) => safeImage(im.src))) ? [{ id: ANCHOR_IDS[s.kind]!.id, label: navLabel(s)! }] : []));
 
   return (
     <div className={css.site} data-look={theme.look} style={style}>
       <header className={css.nav}>
         <b className={css.logo}>{business.name}</b>
-        <nav aria-label="Sections" className={css.links}>
-          {nav.map((n) => (
-            <a key={n.id} href={`#${n.id}`}>
-              {n.label}
-            </a>
-          ))}
+        <nav aria-label={multi ? "Pages" : "Sections"} className={css.links}>
+          {multi
+            ? [{ slug: "", title: "Home" }, ...(content.pages ?? [])].map((p) => (
+                <a key={p.slug} href={pageHref(p.slug)} aria-current={p.slug === current.slug ? "page" : undefined}>
+                  {p.title}
+                </a>
+              ))
+            : nav.map((n) => (
+                <a key={n.id} href={`#${n.id}`}>
+                  {n.label}
+                </a>
+              ))}
         </nav>
         {bookable && (
-          <a className={css.btn} href="#book">
+          <a className={css.btn} href={bookHref}>
             {bookable.cta}
           </a>
         )}
       </header>
 
-      {content.sections.map((s, i) => {
+      {current.sections.map((s, i) => {
         switch (s.kind) {
           case "hero":
             return (
@@ -95,7 +127,7 @@ export function SiteRender({ content, heroImage, enquiry }: { content: SiteConte
                   <h1>{s.headline}</h1>
                   <p>{s.intro}</p>
                   <span className={css.heroActions}>
-                    <a className={css.btn} href="#book">
+                    <a className={css.btn} href={bookHref}>
                       {s.cta}
                     </a>
                     {business.phone && (
@@ -112,7 +144,7 @@ export function SiteRender({ content, heroImage, enquiry }: { content: SiteConte
               <section key={i} id="services" className={css.section}>
                 <h2>{s.heading}</h2>
                 <ul className={css.menu}>
-                  {s.items.map((it, j) => (
+                  {(s.teaser ? s.items.slice(0, s.teaser) : s.items).map((it, j) => (
                     <li key={j}>
                       <span className={css.menuName}>{it.name}</span>
                       {it.price && <span className={css.price}>{it.price}</span>}
@@ -120,6 +152,11 @@ export function SiteRender({ content, heroImage, enquiry }: { content: SiteConte
                     </li>
                   ))}
                 </ul>
+                {s.teaser && s.items.length > s.teaser && (
+                  <a className={css.link} href={pageHref("services")}>
+                    See all {s.items.length}
+                  </a>
+                )}
               </section>
             );
           case "hours":
@@ -240,9 +277,33 @@ export function SiteRender({ content, heroImage, enquiry }: { content: SiteConte
             return (
               <section key={i} className={css.closing}>
                 <h2>{s.headline}</h2>
-                <a className={css.btn} href="#book">
+                <a className={css.btn} href={bookHref}>
                   {s.cta}
                 </a>
+              </section>
+            );
+          case "pagehead":
+            return (
+              <section key={i} className={css.pagehead}>
+                <h1>{s.headline}</h1>
+                <p>{s.intro}</p>
+              </section>
+            );
+          case "about":
+            return (
+              <section key={i} id="about" className={css.section}>
+                <h2>{s.heading}</h2>
+                {s.text && <p className={css.body}>{s.text}</p>}
+                {s.points.length > 0 && (
+                  <dl className={css.points}>
+                    {s.points.map((pt, j) => (
+                      <div key={j}>
+                        <dt>{pt.label}</dt>
+                        <dd>{pt.text}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </section>
             );
         }

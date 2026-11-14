@@ -12,6 +12,7 @@ import { presetFor } from "./presets";
 import { pickPhotos } from "./photos";
 import type { CustomerFacts, SiteContent } from "./schema";
 import type { BriefFile } from "@/lib/website-brief";
+import { choosePages } from "./pages";
 import { writeSite } from "./write";
 
 export type SiteBuildDraft = {
@@ -44,6 +45,9 @@ export type BuildInput = {
   defaultColour?: string;
   /** The customer's plan, which decides the sections. Left out when it isn't known: the sector's full set is used. */
   plan?: PlanLevel;
+  /** The pages the customer chose, by name, and the most their plan allows. Left out: a one-page site. */
+  pages?: string[];
+  pageLimit?: number | null;
 };
 
 export type BuildResult =
@@ -71,9 +75,10 @@ export async function buildSite(ctx: { provider: AiProvider; store: SiteBuildSto
   const facts: CustomerFacts = parsed.facts;
 
   const photos = pickPhotos(input.files ?? []);
+  const pages = input.pages ? choosePages(input.pages, input.pageLimit ?? null) : undefined;
   const written = await writeSite(
     { provider: ctx.provider, spentPence: await ctx.store.spentPence(ctx.briefId), maxPence: ctx.maxPence },
-    { preset, facts, look: parsed.look, colour: parsed.colour, heroPhoto: photos.hero, images: photos.gallery, change: input.change?.trim() || undefined },
+    { preset, facts, look: parsed.look, colour: parsed.colour, heroPhoto: photos.hero, images: photos.gallery, change: input.change?.trim() || undefined, pages, pageLimit: input.pageLimit ?? null },
   );
   const content = written.content;
   if (!content) return { ok: false, reason: written.ok ? "No content." : written.reason, costPence: written.costPence };

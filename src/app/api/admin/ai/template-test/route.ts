@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const staff = await staffFromRequest(db, request.headers.get("authorization"));
   if (!staff) return NextResponse.json({ error: "sign_in" }, { status: 401 });
   if (staff.role !== "owner" && staff.role !== "admin") return NextResponse.json({ error: "Only the owner or an admin can run this test." }, { status: 403 });
-  const body = ((await request.json().catch(() => null)) ?? {}) as { action?: unknown; runs?: unknown; template?: unknown; business?: unknown; rating?: unknown; note?: unknown };
+  const body = ((await request.json().catch(() => null)) ?? {}) as { action?: unknown; runs?: unknown; template?: unknown; pages?: unknown; business?: unknown; rating?: unknown; note?: unknown };
 
   // Saving a judgement on one generated site. Nothing here calls the model.
   if (body.action === "rate") {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const only = typeof body.template === "string" && TEMPLATE_IDS.includes(body.template) ? [body.template] : undefined;
   if (typeof body.template === "string" && !only) return NextResponse.json({ error: "Unknown template." }, { status: 422 });
   try {
-    return NextResponse.json(await runTemplateTest(provider, runs, only));
+    return NextResponse.json(await runTemplateTest(provider, runs, only, typeof body.pages === "number" ? body.pages : 1));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "The test couldn't run." }, { status: 502 });
   }

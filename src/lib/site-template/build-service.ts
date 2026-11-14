@@ -4,7 +4,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiProvider } from "@/lib/ai/provider";
-import { AI_STAGES, loadBrief, logEvent, maxPenceFromEnv, moveStage, type Actor, type BriefRow, type ServiceResult } from "@/lib/ai/website-ai-service";
+import { AI_STAGES, loadBrief, logEvent, maxPenceFromEnv, moveStage, pagesAllowedFor, type Actor, type BriefRow, type ServiceResult } from "@/lib/ai/website-ai-service";
 import type { Stage } from "@/lib/build-journey";
 import { parseWebsiteAnswers, websiteQuote } from "@/lib/website-quote";
 import type { RawAnswers } from "./answers";
@@ -36,7 +36,7 @@ export async function runSiteBuildStep(
   if (!AI_STAGES.includes(brief.stage)) return { ok: false, status: 409, error: "The site build starts once the customer has paid." };
   const store = new SupabaseSiteBuildStore(db, staff.tenantId, staff.userId);
   const plan = await planFor(db, brief);
-  const result = await buildSite({ provider, store, briefId, maxPence: maxPenceFromEnv() }, { ...input, change: input.change?.trim() || undefined, files: brief.brief.files, plan });
+  const result = await buildSite({ provider, store, briefId, maxPence: maxPenceFromEnv() }, { ...input, change: input.change?.trim() || undefined, files: brief.brief.files, plan, pages: brief.brief.pages, pageLimit: await pagesAllowedFor(db, brief) });
   if (!result.ok) {
     await logEvent(db, staff, briefId, "ai", { step: "site", ok: false, reason: result.reason, costPence: result.costPence });
     return { ok: false, status: result.errors ? 422 : 502, error: result.reason };

@@ -55,8 +55,19 @@ describe("what each step needs", () => {
     expect(validateStep("goals", many, ctx({ allowedPages: 10 }))).toEqual({});
   });
 
-  it("goals: a template site has fixed pages, so only goals are asked for", () => {
-    expect(validateStep("goals", { ...barber, pages: Array.from({ length: 9 }, (_, i) => `P${i}`) }, ctx())).toEqual({});
+  it("goals: a template site can choose Home plus any of the five pages its layouts hold", () => {
+    expect(validateStep("goals", { ...barber, pages: ["Home", "Services", "About", "Gallery", "FAQs", "Contact"] }, ctx({ allowedPages: 6 }))).toEqual({});
+    expect(validateStep("goals", { ...barber, pages: ["Home", "Services"] }, ctx({ allowedPages: 5 }))).toEqual({});
+  });
+
+  it("goals: a template site can't choose a page it has no layout for", () => {
+    expect(validateStep("goals", { ...barber, pages: ["Home", "Pricing calculator"] }, ctx()).pages).toContain("Choose from");
+  });
+
+  it("goals: a template site can't choose more pages than the plan allows, and Home counts", () => {
+    expect(validateStep("goals", { ...barber, pages: ["Home", "Services", "About", "Contact"] }, ctx({ allowedPages: 3 })).pages).toContain("up to 3 pages");
+    expect(validateStep("goals", { ...barber, pages: ["Services", "About", "Contact"] }, ctx({ allowedPages: 3 })).pages).toContain("up to 3 pages");
+    expect(validateStep("goals", { ...barber, pages: ["Home", "Services", "About"] }, ctx({ allowedPages: 3 }))).toEqual({});
   });
 
   it("look, files and review never block", () => {

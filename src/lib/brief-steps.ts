@@ -3,6 +3,7 @@
  * Pure (no network, no browser), so the form and the tests share the same rules. The server still checks everything
  * again when the details are sent: these rules only decide when the form lets someone go forward.
  */
+import { pageKindFor } from "./site-template/pages";
 import { parseAnswers } from "./site-template/answers";
 import { SECTOR_PRESETS } from "./site-template/presets";
 import { validateBrief, validateProfile, type WebsiteBrief } from "./website-brief";
@@ -62,8 +63,13 @@ export function validateStep(step: StepId, brief: WebsiteBrief, ctx: StepContext
       if (!errors.pages && !brief.site && ctx.allowedPages !== null && brief.pages.length > ctx.allowedPages) {
         errors.pages = `Your plan covers up to ${ctx.allowedPages} pages. Remove ${brief.pages.length - ctx.allowedPages} to continue.`;
       }
-      // A template site has fixed pages, so only the goals are asked for.
-      if (brief.site) delete errors.pages;
+      // A template site builds only the pages its layouts hold, and Home is always one of them.
+      if (brief.site) {
+        delete errors.pages;
+        const named = brief.pages.filter((p) => p.trim().toLowerCase() !== "home");
+        if (named.some((p) => !pageKindFor(p))) errors.pages = "Choose from Services, About, Gallery, FAQs and Contact.";
+        else if (ctx.allowedPages !== null && named.length + 1 > ctx.allowedPages) errors.pages = `Your plan covers up to ${ctx.allowedPages} pages. Remove ${named.length + 1 - ctx.allowedPages} to continue.`;
+      }
       return errors;
     }
     case "look":

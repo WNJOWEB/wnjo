@@ -4,6 +4,7 @@ import { SECTOR_PRESETS } from "./presets";
 import { SAMPLE_ANSWERS } from "./sample";
 import { SAMPLE_VARIANTS } from "./variants";
 import type { CustomerFacts, SiteContent } from "./schema";
+import { firstPages, MAX_TEMPLATE_PAGES } from "./pages";
 import { assembleSite, defaultCopy, writeSite, type WriteInput } from "./write";
 
 /**
@@ -79,7 +80,10 @@ export function modelLinesOf(content: SiteContent, input: WriteInput): ModelLine
 }
 
 /** Tests every template, or only the ones named, so a slow run can be split across several requests. */
-export async function runTemplateTest(provider: AiProvider, runs: number, only?: string[]): Promise<TemplateTestResult> {
+export async function runTemplateTest(provider: AiProvider, runs: number, only?: string[], pageCount = 1): Promise<TemplateTestResult> {
+  // The customer chose this many pages; their plan is taken to allow at least that many.
+  const chosen = Math.min(MAX_TEMPLATE_PAGES, Math.max(1, Math.floor(pageCount)));
+  const pages = firstPages(chosen);
   const count = Math.min(3, Math.max(1, Math.floor(runs)));
   const rows: TemplateTestRow[] = [];
   const presets = Object.values(SECTOR_PRESETS).filter((p) => !only || only.includes(p.id));
@@ -100,6 +104,8 @@ export async function runTemplateTest(provider: AiProvider, runs: number, only?:
           colour: parsed.colour,
           heroPhoto: photos?.hero,
           images: photos?.gallery.map((src, n) => ({ src, alt: `${answers.businessName ?? "Our"} photo ${n + 1}` })),
+          pages,
+          pageLimit: chosen,
         };
         const r = await writeSite({ provider, spentPence: 0, maxPence: 300 }, writeInput);
         pence += r.costPence;

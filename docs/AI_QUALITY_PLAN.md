@@ -86,3 +86,18 @@ with the reasons, up to three times, and then goes to a person marked failed.
   A run the customer wrote themselves is not counted.
 - **Asked up front:** the prompt states the filler to avoid and the no-copying rule, so fewer drafts need another
   round.
+
+## Pages
+
+A template site builds exactly the pages the customer chose, up to their plan's limit (Core 5, Plus 10, Pro 20).
+Home is always one of them. The six pages a template can hold are Home, Services, About, Gallery, FAQs and Contact,
+so a plan that allows more than six still builds six at most.
+
+- The form (`PagesField` with `choices`) offers only those six, and `validateStep("goals")` rejects any other name or
+  more pages than the plan allows.
+- `buildSite` turns the chosen names into page kinds with `choosePages`, and the writer tells the model how many were
+  chosen and what the plan allows. The model writes a headline and one line for each page after Home.
+- `layoutPages` spreads the sections over the pages. Services shows three items on Home with a link to the full list.
+- `checkSite` checks every page: a heading at the top, the same next step at the bottom, nothing empty, not over the plan.
+- A Gallery page with no photos, or an FAQs page with no questions, is flagged so staff see it. Writing again can't fix it.
+- The staff template test has a "Pages the customer chose" picker and one tab per page.

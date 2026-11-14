@@ -74,6 +74,7 @@ export function PagesField({
   error,
   bandMax,
   hardMax = null,
+  choices,
 }: {
   brief: WebsiteBrief;
   onChange: Change;
@@ -82,11 +83,14 @@ export function PagesField({
   bandMax: number | null;
   /** The most pages the customer's plan allows. Past it, no more pages can be added. */
   hardMax?: number | null;
+  /** A template site can build only these pages. Home is always included, and no others can be added. */
+  choices?: readonly string[];
 }) {
   const [custom, setCustom] = useState("");
   const has = (p: string) => brief.pages.some((x) => x.toLowerCase() === p.toLowerCase());
   const full = hardMax !== null && brief.pages.length >= hardMax;
   const toggle = (p: string) => {
+    if (choices && p === choices[0]) return;
     if (!has(p) && full) return;
     onChange({ pages: has(p) ? brief.pages.filter((x) => x.toLowerCase() !== p.toLowerCase()) : [...brief.pages, p] });
   };
@@ -96,20 +100,20 @@ export function PagesField({
     onChange({ pages: [...brief.pages, name] });
     setCustom("");
   };
-  const extras = brief.pages.filter((p) => !SUGGESTED_PAGES.some((s) => s.toLowerCase() === p.toLowerCase()));
+  const extras = choices ? [] : brief.pages.filter((p) => !SUGGESTED_PAGES.some((s) => s.toLowerCase() === p.toLowerCase()));
   const overPlan = hardMax !== null && brief.pages.length > hardMax;
   const over = overPlan || (bandMax !== null && brief.pages.length > bandMax);
   return (
     <fieldset className={styles.group}>
       <legend className={styles.legend}>Your pages</legend>
       <div className="brief-chips" role="group" aria-label="Pages">
-        {[...SUGGESTED_PAGES, ...extras].map((p) => (
-          <button key={p} type="button" className="brief-chip" aria-pressed={has(p)} disabled={!has(p) && full} onClick={() => toggle(p)}>
+        {[...(choices ?? SUGGESTED_PAGES), ...extras].map((p) => (
+          <button key={p} type="button" className="brief-chip" aria-pressed={has(p)} disabled={(!has(p) && full) || (choices !== undefined && p === choices[0])} onClick={() => toggle(p)}>
             {p}
           </button>
         ))}
       </div>
-      <div className="brief-add">
+      {!choices && <div className="brief-add">
         <label htmlFor="brief-custom-page" className="visually-hidden">
           Add a page
         </label>
@@ -131,7 +135,7 @@ export function PagesField({
         <button type="button" className="btn btn--secondary" onClick={add} disabled={full || !custom.trim()}>
           Add
         </button>
-      </div>
+      </div>}
       <p className={`brief-count${over ? " brief-count--over" : ""}`} aria-live="polite">
         {hardMax !== null ? (
           overPlan ? (

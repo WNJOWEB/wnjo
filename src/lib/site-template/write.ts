@@ -8,6 +8,7 @@ import { MAX_ROUNDS } from "@/lib/ai/limits";
 import { ProviderError, type AiProvider } from "@/lib/ai/provider";
 import { extractJson } from "@/lib/ai/website-plan";
 import { checkSite, describeIssues, FILLER_PHRASES, type CheckIssue } from "./checks";
+import { aboutSection, layoutPages, PAGE_KINDS, pageTitle, type PageHeads, type PageKind } from "./pages";
 import type { SectorPreset } from "./presets";
 import type { CustomerFacts, GalleryImage, Look, Section, SiteContent } from "./schema";
 import { FIELD_LIMITS, WORD_LIMITS } from "./schema";
@@ -22,6 +23,8 @@ export type SiteCopy = {
   enquiry: { intro: string; cta: string };
   faq: { question: string; answer: string }[];
   closing: { headline: string; cta: string };
+  /** A headline and a line for each page after Home. Optional: our own wording is used for any the model skips. */
+  pageHeads: PageHeads;
 };
 
 export type WriteInput = {
@@ -35,6 +38,10 @@ export type WriteInput = {
   images?: GalleryImage[];
   /** A change the owner or customer asked for, applied when the site is written again. */
   change?: string;
+  /** The pages the customer chose, Home first. Left out for a one-page site. */
+  pages?: PageKind[];
+  /** The most pages their plan allows, so the model knows the limit. */
+  pageLimit?: number | null;
 };
 
 export const COPY_SYSTEM =
@@ -44,9 +51,13 @@ export const COPY_SYSTEM =
   "give it. No HTML and no links. Reply with one JSON object and nothing else.";
 
 /** The only fields the model writes. Everything else on the site is ours: the facts, and the fixed wording of the template. */
-const SHAPE =
-  '{"tagline": string, "hero": {"headline": string, "intro": string}, ' +
-  '"descriptions": {"<service name exactly as given>": string}, "faq": [{"question": string, "answer": string}]}';
+const BASE_SHAPE = '"tagline": string, "hero": {"headline": string, "intro": string}, "descriptions": {"<service name exactly as given>": string}, "faq": [{"question": string, "answer": string}]';
+
+/** The reply's shape, with an entry for each page the customer chose after Home. */
+const shapeFor = (pages: readonly PageKind[]): string => {
+  const others = pages.filter((p) => p !== "home");
+  return `{${BASE_SHAPE}${others.length ? `, "pages": {${others.map((k) => `"${k}": {"headline": string, "intro": string}`).join(", ")}}` : ""}}`;
+};
 
 const LOOK_TONE: Record<Look, string> = {
   minimal: "calm and understated",
@@ -59,6 +70,14 @@ const LOOK_TONE: Record<Look, string> = {
 function sectorRules(input: WriteInput): string[] {
   const rules = (input.preset.restrictedClaims ?? []).filter((c) => !c.unless?.(input.facts)).map((c) => `- ${c.reason}`);
   return rules.length ? ["Rules for this sector (a draft that breaks one is rejected):", ...rules] : [];
+}
+
+/** Tells the model how many pages the customer chose, which, and what their plan allows. */
+function pagesLine(input: WriteInput): string {
+  const pages = input.pages ?? ["home"];
+  if (pages.length <= 1) return `Pages: the customer chose one page, so this is a one-page website.${input.pageLimit ? ` Their plan allows up to ${input.pageLimit}.` : ""}`;
+  const names = pages.map((k) => (k === "home" ? "Home" : pageTitle(input.preset, k))).join(", ");
+  return `Pages: the customer chose ${pages.length} pages: ${names}.${input.pageLimit ? ` Their plan allows up to ${input.pageLimit}.` : ""} Write a headline and one line of intro for each page after Home, under "pages". Write nothing for a page they did not choose.`;
 }
 
 export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string {
@@ -80,6 +99,7 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     ...(facts.details ?? []).map((d) => `Customer's answer to "${d.label}": ${d.value}`),
     facts.about || facts.details?.length ? "Draw on the customer's own words and answers for the hero intro, the tagline and the FAQ. Rephrase them if you like, but never state anything they don't say." : "",
     ...sectorRules(input),
+    pagesLine(input),
     "Write only these. Everything else on the site is written for you:",
     "- tagline: optional, a short line under the business name. Leave it empty if nothing true and short fits.",
     ...wanted,
@@ -91,7 +111,7 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     input.change ? `Apply this change: ${input.change.slice(0, 1000)}` : "",
     retryIssues ? `\nYour last attempt failed these checks:\n${retryIssues}\nFix them.` : "",
     "",
-    `Reply as JSON in exactly this shape: ${SHAPE}`,
+    `Reply as JSON in exactly this shape: ${shapeFor(input.pages ?? ["home"])}`,
   ]
     .filter((line, i, all) => line !== "" || all[i - 1] !== "")
     .join("\n");
@@ -131,6 +151,14 @@ export function parseCopy(text: string): ParsedCopy {
     .filter((q) => q.question && q.answer)
     .slice(0, 4);
 
+  const pageHeads: PageHeads = {};
+  for (const kind of PAGE_KINDS) {
+    if (kind === "home") continue;
+    const head = obj(obj(r.pages)[kind]);
+    const headline = clean(head.headline, FIELD_LIMITS.headline);
+    if (headline) pageHeads[kind] = { headline, intro: clean(head.intro, FIELD_LIMITS.intro) };
+  }
+
   return {
     ok: true,
     copy: {
@@ -149,6 +177,7 @@ export function parseCopy(text: string): ParsedCopy {
       enquiry: { intro: clean(enquiry.intro, FIELD_LIMITS.intro), cta: clean(enquiry.cta, FIELD_LIMITS.cta) },
       faq,
       closing: { headline: clean(closing.headline, FIELD_LIMITS.headline), cta: clean(closing.cta, FIELD_LIMITS.cta) },
+      pageHeads,
     },
   };
 }
@@ -189,6 +218,7 @@ export function defaultCopy(input: WriteInput): SiteCopy {
     enquiry: { intro: c.enquiryIntro, cta: c.enquiryCta },
     faq: [],
     closing: { headline: c.closingHeadline, cta: c.closingCta },
+    pageHeads: {},
   };
 }
 
@@ -212,6 +242,7 @@ export function withDefaults(input: WriteInput, copy: SiteCopy): SiteCopy {
     enquiry: { intro: pick(copy.enquiry.intro, d.enquiry.intro), cta: pick(copy.enquiry.cta, d.enquiry.cta) },
     faq: copy.faq,
     closing: { headline: pick(copy.closing.headline, d.closing.headline), cta: pick(copy.closing.cta, d.closing.cta) },
+    pageHeads: copy.pageHeads,
   };
 }
 
@@ -259,6 +290,9 @@ export function assembleSite(input: WriteInput, copy: SiteCopy): SiteContent {
     }
   }
 
+  // Spread the sections over the pages the customer chose. With one page chosen the site is just `sections`.
+  const layout = layoutPages(preset, input.pages ?? ["home"], sections, copy.pageHeads ?? {}, aboutSection(facts));
+
   return {
     business: {
       name: facts.businessName,
@@ -268,7 +302,8 @@ export function assembleSite(input: WriteInput, copy: SiteCopy): SiteContent {
       ...(facts.address ? { address: facts.address } : {}),
     },
     theme: { colour: input.colour, look: input.look },
-    sections,
+    sections: layout.sections,
+    ...(layout.pages.length ? { pages: layout.pages } : {}),
   };
 }
 
@@ -308,9 +343,13 @@ export async function writeSite(ctx: WriteContext, input: WriteInput): Promise<W
       continue;
     }
     const content = assembleSite(input, withDefaults(input, parsed.copy));
-    const result = checkSite(content, input.facts, input.preset);
+    const result = checkSite(content, input.facts, input.preset, { pages: input.pages, pageLimit: input.pageLimit });
     if (result.ok) return { ok: true, content, costPence: spent - start };
     last = { content, issues: result.issues };
+    // A page with nothing to show (no photos for a Gallery) can't be fixed by writing again, so don't spend rounds on it.
+    if (result.issues.every((i) => i.code === "page-missing" || i.code === "over-plan")) {
+      return { ok: false, reason: "A page the customer chose has nothing to show.", ...last, costPence: spent - start };
+    }
     retryIssues = describeIssues(result);
   }
   if (last) return { ok: false, reason: "The site did not pass the checks after three tries.", ...last, costPence: spent - start };
@@ -320,7 +359,7 @@ export async function writeSite(ctx: WriteContext, input: WriteInput): Promise<W
     ok: false,
     reason: "The AI wording could not be used, so this draft uses our standard wording. Read it before releasing it.",
     content: fallback,
-    issues: checkSite(fallback, input.facts, input.preset).issues,
+    issues: checkSite(fallback, input.facts, input.preset, { pages: input.pages, pageLimit: input.pageLimit }).issues,
     costPence: spent - start,
   };
 }

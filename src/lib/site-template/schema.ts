@@ -5,7 +5,7 @@
  */
 
 /** The kinds of section a template can have. A sector preset chooses which ones appear, and in what order. */
-export const SECTION_KINDS = ["hero", "services", "hours", "gallery", "facts", "area", "enquiry", "faq", "cta"] as const;
+export const SECTION_KINDS = ["hero", "services", "hours", "gallery", "facts", "area", "enquiry", "faq", "cta", "pagehead", "about"] as const;
 export type SectionKind = (typeof SECTION_KINDS)[number];
 
 export const LOOKS = ["minimal", "warm", "bold", "classic"] as const;
@@ -44,14 +44,21 @@ export type FaqItem = { question: string; answer: string };
 
 export type Section =
   | { kind: "hero"; variant: "photo" | "video" | "plain"; headline: string; intro: string; cta: string; image?: string }
-  | { kind: "services"; heading: string; items: ServiceItem[] }
+  | { kind: "services"; heading: string; items: ServiceItem[]; /** On the home page of a multi-page site: show only this many, with a link to the full list. */ teaser?: number }
   | { kind: "hours"; heading: string; items: HoursItem[] }
   | { kind: "gallery"; heading: string; images: GalleryImage[] }
   | { kind: "facts"; items: Fact[] }
   | { kind: "area"; heading: string; text: string }
   | { kind: "enquiry"; heading: string; intro: string; cta: string; prompt?: string }
   | { kind: "faq"; heading: string; items: FaqItem[] }
-  | { kind: "cta"; headline: string; cta: string };
+  | { kind: "cta"; headline: string; cta: string }
+  /** The top of every page after the first: its title and one line under it. */
+  | { kind: "pagehead"; headline: string; intro: string }
+  /** The customer's own words about the business, and their answers to the sector's questions, set out as points. */
+  | { kind: "about"; heading: string; text: string; points: { label: string; text: string }[] };
+
+/** A page after the first. The first page is the content's own `sections`. */
+export type SitePage = { slug: string; title: string; sections: Section[] };
 
 export type BusinessDetails = {
   name: string;
@@ -64,7 +71,10 @@ export type BusinessDetails = {
 export type SiteContent = {
   business: BusinessDetails;
   theme: { colour: string; look: Look };
+  /** The home page. A one-page site has only this. */
   sections: Section[];
+  /** The other pages of a multi-page site, in menu order. Absent for a one-page site. */
+  pages?: SitePage[];
 };
 
 /**

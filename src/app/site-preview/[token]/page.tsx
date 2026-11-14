@@ -19,9 +19,9 @@ const TOKEN = /^[A-Za-z0-9_-]{20,64}$/;
  * its long random address, which staff keep until a person releases the build to the customer. A withdrawn build
  * shows nothing. The booking form is inactive here: a preview must never send anything.
  */
-export default async function SitePreviewPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ sent?: string }> }) {
+export default async function SitePreviewPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ sent?: string; page?: string }> }) {
   const { token } = await params;
-  const { sent } = await searchParams;
+  const { sent, page } = await searchParams;
   if (!TOKEN.test(token)) notFound();
   const db = serviceClient();
   if (!db) notFound();
@@ -53,6 +53,7 @@ export default async function SitePreviewPage({ params, searchParams }: { params
       <SiteRender
         content={content}
         heroImage={heroImage}
+        page={typeof page === "string" ? page : ""}
         // Only a build a person has released takes booking requests. A draft is a private preview and sends nothing.
         enquiry={row.status === "released" ? { action: "/api/site-enquiry", token, state: sent === "1" ? "sent" : sent === "0" ? "error" : undefined } : undefined}
       />

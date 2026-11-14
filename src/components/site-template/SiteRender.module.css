@@ -388,3 +388,51 @@
     display: none;
   }
 }
+
+.pagehead {
+  padding: clamp(2.5rem, 8vw, 5rem) var(--pad) clamp(1rem, 3vw, 2rem);
+  max-width: 62rem;
+  margin: 0 auto;
+}
+.pagehead h1 {
+  margin: 0 0 0.75rem;
+  font-family: var(--head);
+  font-weight: var(--head-weight);
+  text-transform: var(--head-case);
+  letter-spacing: var(--head-track);
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.1;
+}
+.pagehead p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.points {
+  display: grid;
+  gap: 0;
+  max-width: 36rem;
+  margin: 1.5rem 0 0;
+}
+.points div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.points dt {
+  font-weight: 600;
+}
+.points dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.links a[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.35em;
+  text-decoration-color: var(--accent);
+}

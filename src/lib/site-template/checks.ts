@@ -2,6 +2,7 @@
  * Automatic checks on a template build. A build is usable only if none of these report an issue. The model is never
  * asked whether it is happy with its own work; these decide. The owner can still override a failure when reviewing.
  */
+import { PAGE_CHOICES, slugFor, type PageKind } from "./pages";
 import type { CustomerFacts, Section, SiteContent } from "./schema";
 import { AVOID_WORDING } from "./avoid-wording";
 import { findCopiedRun } from "./originality";
@@ -60,6 +61,14 @@ const digits = (s: string) => s.replace(/\D/g, "");
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 const priceKey = (s: string) => s.replace(/[£\s,]/g, "").replace(/\.00$/, "");
 
+/** Every page of the site: the home page first, then the others, each with where its sections sit in the content. */
+function pagesOf(content: SiteContent): { where: string; sections: Section[]; isHome: boolean; slug: string }[] {
+  return [
+    { where: "sections", sections: content.sections, isHome: true, slug: "" },
+    ...(content.pages ?? []).map((p, n) => ({ where: `pages[${n}].sections`, sections: p.sections, isHome: false, slug: p.slug })),
+  ];
+}
+
 /** Every piece of customer-facing text in the content, with where it sits, so checks can look at each one. */
 function textFields(content: SiteContent): { where: string; text: string; limit?: number }[] {
   const out: { where: string; text: string; limit?: number }[] = [];
@@ -69,8 +78,8 @@ function textFields(content: SiteContent): { where: string; text: string; limit?
   const b = content.business;
   add("business.name", b.name, FIELD_LIMITS.heading);
   add("business.tagline", b.tagline, FIELD_LIMITS.tagline);
-  content.sections.forEach((s, i) => {
-    const at = `sections[${i}].${s.kind}`;
+  pagesOf(content).forEach((page) => page.sections.forEach((s, i) => {
+    const at = `${page.where}[${i}].${s.kind}`;
     switch (s.kind) {
       case "hero":
         add(`${at}.headline`, s.headline, FIELD_LIMITS.headline);
@@ -119,8 +128,17 @@ function textFields(content: SiteContent): { where: string; text: string; limit?
         add(`${at}.headline`, s.headline, FIELD_LIMITS.headline);
         add(`${at}.cta`, s.cta, FIELD_LIMITS.cta);
         break;
+      case "pagehead":
+        add(`${at}.headline`, s.headline, FIELD_LIMITS.headline);
+        add(`${at}.intro`, s.intro, FIELD_LIMITS.intro);
+        break;
+      case "about":
+        add(`${at}.heading`, s.heading, FIELD_LIMITS.heading);
+        add(`${at}.text`, s.text, FIELD_LIMITS.body);
+        s.points.forEach((pt, j) => add(`${at}.points[${j}].text`, pt.text, FIELD_LIMITS.itemText));
+        break;
     }
-  });
+  }));
   return out;
 }
 
@@ -142,33 +160,68 @@ function isFilled(s: Section): boolean {
       return !!s.heading.trim() && !!s.cta.trim();
     case "cta":
       return !!s.headline.trim() && !!s.cta.trim();
+    case "pagehead":
+      return !!s.headline.trim();
+    case "about":
+      return !!s.text.trim();
   }
 }
 
 /** `avoid` is wording from sites we shouldn't copy; it defaults to the list kept in avoid-wording.ts. */
-export function checkSite(content: SiteContent, facts: CustomerFacts, preset: SectorPreset, options: { avoid?: readonly string[] } = {}): CheckResult {
+export function checkSite(
+  content: SiteContent,
+  facts: CustomerFacts,
+  preset: SectorPreset,
+  /** `pages` is the pages the customer chose (home counts); `pageLimit` is what their plan allows. */
+  options: { avoid?: readonly string[]; pages?: readonly PageKind[]; pageLimit?: number | null } = {},
+): CheckResult {
   const issues: CheckIssue[] = [];
   const flag = (code: string, message: string, where?: string) => issues.push({ code, message, where });
 
-  // Structure: known kinds, only kinds the preset allows, no repeats, in the preset's order.
+  // Structure, page by page: known kinds, only kinds the preset allows, no repeats on a page, in the preset's order.
+  // A page's own heading and the About block belong to the page layout, not to the sector.
   const allowed = preset.sections.map((p) => p.kind);
+  const pages = pagesOf(content);
   const seen = new Set<string>();
-  let lastIndex = -1;
-  content.sections.forEach((s, i) => {
-    if (!SECTION_KINDS.includes(s.kind)) return flag("unknown-section", `Unknown section "${String(s.kind)}".`, `sections[${i}]`);
-    if (!allowed.includes(s.kind)) return flag("section-not-in-preset", `A ${preset.label} site has no "${s.kind}" section.`, `sections[${i}]`);
-    if (seen.has(s.kind)) return flag("duplicate-section", `The "${s.kind}" section appears twice.`, `sections[${i}]`);
-    seen.add(s.kind);
-    const order = allowed.indexOf(s.kind);
-    if (order < lastIndex) flag("section-order", `The "${s.kind}" section is out of order.`, `sections[${i}]`);
-    lastIndex = Math.max(lastIndex, order);
-    if (!isFilled(s)) flag("empty-section", `The "${s.kind}" section is empty.`, `sections[${i}]`);
-  });
+  for (const page of pages) {
+    const onPage = new Set<string>();
+    let lastIndex = -1;
+    page.sections.forEach((s, i) => {
+      const at = `${page.where}[${i}]`;
+      if (!SECTION_KINDS.includes(s.kind)) return flag("unknown-section", `Unknown section "${String(s.kind)}".`, at);
+      if (s.kind === "pagehead" || s.kind === "about") {
+        if (page.isHome) return flag("section-not-in-preset", `The home page has no "${s.kind}" section.`, at);
+        if (s.kind === "pagehead" && i !== 0) flag("section-order", "A page's heading comes first.", at);
+        if (!isFilled(s)) flag("empty-section", `The "${s.kind}" section is empty.`, at);
+        return;
+      }
+      if (!allowed.includes(s.kind)) return flag("section-not-in-preset", `A ${preset.label} site has no "${s.kind}" section.`, at);
+      if (onPage.has(s.kind)) return flag("duplicate-section", `The "${s.kind}" section appears twice.`, at);
+      onPage.add(s.kind);
+      seen.add(s.kind);
+      const order = allowed.indexOf(s.kind);
+      if (order < lastIndex) flag("section-order", `The "${s.kind}" section is out of order.`, at);
+      lastIndex = Math.max(lastIndex, order);
+      if (!isFilled(s)) flag("empty-section", `The "${s.kind}" section is empty.`, at);
+    });
+    if (!page.isHome && page.sections[0]?.kind !== "pagehead") flag("page-head-missing", `The ${page.slug} page needs a heading at the top.`, page.where);
+  }
 
-  // Required sections are present.
+  // Required sections are present somewhere on the site.
   for (const p of preset.sections) {
     if (p.required && !seen.has(p.kind)) flag("missing-section", `The required "${p.kind}" section is missing.`);
   }
+
+  // The pages the customer chose: exactly those, and no more than their plan allows.
+  if (options.pages && options.pages.length > 1) {
+    const have = new Set((content.pages ?? []).map((p) => p.slug));
+    for (const kind of options.pages) {
+      if (kind !== "home" && !have.has(slugFor(kind))) flag("page-missing", `The ${PAGE_CHOICES[kind]} page was chosen but has nothing to show. Add what it needs, or choose another page.`);
+    }
+    const wanted = new Set(options.pages.map((k) => slugFor(k)));
+    for (const slug of have) if (!wanted.has(slug)) flag("too-many-pages", `The ${slug} page was not chosen.`);
+  }
+  if (options.pageLimit != null && pages.length > options.pageLimit) flag("over-plan", `The site has ${pages.length} pages but the plan allows ${options.pageLimit}.`);
 
   if (!(LOOKS as readonly string[]).includes(content.theme.look)) flag("bad-look", `"${content.theme.look}" is not an allowed look.`, "theme.look");
   if (!/^#[0-9a-f]{6}$/i.test(content.theme.colour)) flag("bad-colour", "The theme colour must be a hex colour such as #1a2b3c.", "theme.colour");
@@ -209,12 +262,25 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
       flag("cta-mismatch", `The page should point to one next step, but the top says "${hero.cta}" and the end says "${closing.cta}".`, "cta");
     }
   }
+  for (const page of pages) {
+    if (page.isHome) continue;
+    const next = page.sections.find((s) => s.kind === "cta");
+    if (!next || next.kind !== "cta") flag("cta-missing", `The ${page.slug} page needs the same next step as the home page.`, page.where);
+    else if (closing && closing.kind === "cta" && norm(next.cta) !== norm(closing.cta)) {
+      flag("cta-mismatch", `The ${page.slug} page says "${next.cta}", but the home page says "${closing.cta}".`, page.where);
+    }
+  }
   const theirs = plain(theirWords);
   const avoid = options.avoid ?? AVOID_WORDING;
   for (const f of fields) {
     // The customer's own names and prices, and the facts they ticked, are theirs: only wording is judged.
     if (f.where.includes(".facts.") || f.where === "business.name" || /\.items\[\d+\]\.(name|price)$/.test(f.where)) continue;
-    const words = f.where.endsWith(".hero.headline") ? WORD_LIMITS.headline : f.where.endsWith(".hero.intro") || f.where.endsWith(".enquiry.intro") ? WORD_LIMITS.intro : undefined;
+    const words =
+      f.where.endsWith(".hero.headline") || f.where.endsWith(".pagehead.headline")
+        ? WORD_LIMITS.headline
+        : f.where.endsWith(".hero.intro") || f.where.endsWith(".enquiry.intro") || f.where.endsWith(".pagehead.intro")
+          ? WORD_LIMITS.intro
+          : undefined;
     if (words && wordCount(f.text) > words) flag("too-many-words", `Use at most ${words} words here; this has ${wordCount(f.text)}.`, f.where);
     const filler = fillerIn(f.text);
     if (filler && !theirs.includes(filler)) flag("filler", `"${filler}" says nothing. Say what the business does instead.`, f.where);
@@ -235,7 +301,8 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
     flag("business-name", "The business name does not appear.", "business.name");
   }
 
-  const services = content.sections.find((s) => s.kind === "services");
+  const all = pages.flatMap((pg) => pg.sections);
+  const services = all.find((s) => s.kind === "services" && !s.teaser);
   const listed = services && services.kind === "services" ? services.items : [];
   for (const svc of facts.services) {
     const match = listed.find((it) => norm(it.name) === norm(svc.name));
@@ -274,7 +341,7 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
   if (b.address && (!facts.address || norm(b.address) !== norm(facts.address))) flag("address-invented", "The address does not match the customer's.", "business.address");
 
   // Opening hours must be the customer's, unchanged.
-  const hours = content.sections.find((s) => s.kind === "hours");
+  const hours = all.find((s) => s.kind === "hours");
   if (hours && hours.kind === "hours") {
     if (!facts.hours) {
       flag("hours-invented", "The customer gave no opening hours.", "hours");
@@ -288,7 +355,7 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
     if (preset.areaSource === "address" && !facts.address) flag("area-without-address", "The customer gave no address, so there is nothing to put in the area section.", "area");
     if (preset.areaSource === "areas") {
       if (!facts.areas?.length) flag("area-without-areas", "The customer gave no areas, so there is nothing to put in the area section.", "area");
-      const areaSection = content.sections.find((s) => s.kind === "area");
+      const areaSection = all.find((s) => s.kind === "area");
       const areaText = areaSection && areaSection.kind === "area" ? norm(`${areaSection.heading} ${areaSection.text}`) : "";
       for (const place of facts.areas ?? []) if (!areaText.includes(norm(place))) flag("area-missing", `The area "${place}" is missing.`, "area");
     }
