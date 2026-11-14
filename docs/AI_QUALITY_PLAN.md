@@ -1,14 +1,14 @@
 # AI quality plan (Claude drafts)
 
-Status: proposed, not built. Written 14 November 2026. Quality is judged by checks, not by money.
+Status: BUILT for template sites (14 November 2026). Quality is judged by checks, not by money. The checks below run on every template build. The free-form plan and page steps for a bespoke website get the three-round retry and the £10 ceiling, but not these content checks.
 
 ## The rule
 Claude (Haiku 5.5) drafts the plan and each page. Each page is checked. A page that fails gets another round with the reasons
-attached, up to 3 rounds. If it still fails, a person sees the page and the reasons. Nothing reaches a customer
+attached, up to 3 rounds. If it still fails, a person sees the page and the reasons (`MAX_ROUNDS` in `src/lib/ai/limits.ts`). Nothing reaches a customer
 until a person releases the preview.
 
 ## The money ceiling
-- £10 per website, as a safety net against a runaway loop. It is not a quality target.
+- £10 per website, as a safety net against a runaway loop. It is not a quality target. `DEFAULT_MAX_PENCE_PER_BRIEF` in `src/lib/ai/limits.ts`; `AI_MAX_PENCE_PER_BRIEF` overrides it.
 - Each draft's real cost is logged, so the ceiling can be set from measured spend once the AI is live.
 
 ## Criteria
@@ -66,3 +66,22 @@ That uses Claude Haiku 5.5 with low thinking, the defaults.
 
 It fails if fewer than 90% of sites pass on the model's own wording (`AI_EVAL_MIN_PASS` changes that). Not run yet: it
 needs an Anthropic key.
+
+## What the checks do (built 14 November 2026)
+All in `src/lib/site-template/checks.ts`, with tests in `quality.test.ts`. A site that fails any of them is tried again
+with the reasons, up to three times, and then goes to a person marked failed.
+- **Coverage:** every required section is present and filled in (already in place).
+- **One clear next step:** the top of the page has a next step, and the end of the page says the same thing
+  (`cta-missing`, `cta-mismatch`).
+- **Plain English:** no filler phrases (`FILLER_PHRASES`, for example "passionate team", "cutting-edge", "one-stop
+  shop"), and no sentence over 35 words (`filler`, `long-sentence`). The customer's own words are never judged.
+- **Length:** a headline of at most 12 words, and an intro of at most 40 (`too-many-words`). `WORD_LIMITS` in `schema.ts`.
+- **Search basics:** the page has an intro, which is its description, and every image has alt text (`no-description`,
+  `missing-alt`). There is one headline per page, because a template has one top section. The page title is not
+  checked, because a template does not set one yet.
+- **Consistency:** the same service names, prices, hours and places as the customer gave (already in place).
+- **Copied wording:** any run of 7 words in a row that exactly matches wording listed in `avoid-wording.ts` is
+  flagged (`copied-wording`). The list starts empty: paste in a competitor's paragraphs when a customer points at one.
+  A run the customer wrote themselves is not counted.
+- **Asked up front:** the prompt states the word limits, the filler to avoid and the no-copying rule, so fewer drafts
+  need another round.

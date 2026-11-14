@@ -4,11 +4,12 @@
  * and never touches prices, contracts or publishing: a person releases a preview and approves going live.
  * Spend is capped per website, and the cap is checked before every model call.
  */
+import { MAX_ROUNDS } from "./limits";
 import { ProviderError, type AiProvider } from "./provider";
 import { buildPlanPrompt, parsePlan, PLAN_SYSTEM, type PlanInput, type WebsitePlan } from "./website-plan";
 import { buildContentPrompt, CONTENT_SYSTEM, parseContent, type PageContent } from "./website-content";
 
-export const DEFAULT_MAX_PENCE_PER_BRIEF = 300;
+export { DEFAULT_MAX_PENCE_PER_BRIEF } from "./limits";
 
 export type StoredPlan = { id: string; version: number; plan: WebsitePlan };
 export type PlanDraft = { plan: WebsitePlan; provider: string; model: string; costPence: number };
@@ -26,7 +27,7 @@ export type PipelineResult<T> = { ok: true; value: T; costPence: number } | { ok
 
 type Ctx = { provider: AiProvider; store: WebsiteAiStore; briefId: string; maxPence: number };
 
-/** One model call that must return text we can use. A reply in the wrong shape gets one more try, then fails. */
+/** One model call that must return text we can use. A reply in the wrong shape gets two more tries, then fails. */
 async function ask<T>(
   ctx: Ctx,
   budget: { spent: number },
@@ -35,7 +36,7 @@ async function ask<T>(
   parse: (text: string) => { ok: true; value: T } | { ok: false; reason: string },
 ): Promise<{ ok: true; value: T } | { ok: false; reason: string }> {
   let prompt = user;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MAX_ROUNDS; attempt++) {
     if (budget.spent >= ctx.maxPence) return { ok: false, reason: "The spending limit for this website has been reached." };
     let reply;
     try {
@@ -52,7 +53,7 @@ async function ask<T>(
     if (parsed.ok) return parsed;
     prompt = `${user}\n\nYour last reply was rejected: ${parsed.reason} Reply again with only the JSON.`;
   }
-  return { ok: false, reason: "The AI reply was not in the right shape after two tries." };
+  return { ok: false, reason: "The AI reply was not in the right shape after three tries." };
 }
 
 export async function generatePlan(ctx: Ctx, input: PlanInput): Promise<PipelineResult<StoredPlan>> {

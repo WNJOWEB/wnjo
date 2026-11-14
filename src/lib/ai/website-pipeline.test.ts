@@ -59,12 +59,12 @@ describe("generatePlan", () => {
     expect(r.costPence).toBe(10);
     expect(saved.plans).toHaveLength(1);
   });
-  it("asks once more when the first reply is the wrong shape, then fails after two tries", async () => {
+  it("asks again when the first reply is the wrong shape, then fails after three tries", async () => {
     const { store, saved } = fakeStore();
     const provider = fakeProvider(["nonsense"]);
     const r = await generatePlan({ provider, store, briefId: "b", maxPence: 300 }, input);
     expect(r.ok).toBe(false);
-    expect(provider.calls).toBe(2);
+    expect(provider.calls).toBe(3);
     expect(saved.plans).toHaveLength(0);
   });
   it("recovers when the second reply is good", async () => {

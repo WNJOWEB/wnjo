@@ -54,7 +54,8 @@ they can be done. Nothing here is pushed or deployed until the owner says so.
 - [x] **AI context audit (14 November):** the one-off website quote is priced from the tier that fits the pages (Essential £999 for up to 5, Professional £1,999 for up to 10, Premium £2,999 for up to 20), matching the website. Tier page limits are now 5, 10 and 20, the same as the managed plans. The template writer is told the sector rules (such as no promised cures) up front. The older instant-quote calculator keeps its original prices and is no longer used by any customer page.
 
 ## Before launch
-- [ ] **AI quality checks (see `docs/AI_QUALITY_PLAN.md`):** criteria checks, copied-wording check, retry rule, and a £10 ceiling. Owner to confirm the ceiling and word limits.
+- [x] **AI quality checks (14 November, not yet on main):** built for template sites (see `docs/AI_QUALITY_PLAN.md`). One clear next step, plain English (filler phrases and long sentences), a headline of at most 12 words and an intro of at most 40, a description for search, a copied-wording check (7 words in a row, against a list that starts empty), three rounds of retry then a person, and a £10 ceiling. The owner chose the 12 and 40 word limits, the three rounds and the £10 ceiling by going ahead; each is a single setting. Not yet covered: the free-form plan and page steps for a bespoke website get the retry and the ceiling but not the content checks; the page title is not checked.
+- [ ] **Tune the checks on the live test:** run the template test and read the failures. If the model trips a check too often, loosen or fix that check, so cheap drafts don't all go to a person.
 - [ ] **Full Fable audit before launch.** Scope:
   - Signed-in account and admin screens: every page and action, including what a customer sees of someone else's data.
   - Database security advisor (Supabase): row-level security on every table, and the brief pass (write-only, one brief, 48 hours).

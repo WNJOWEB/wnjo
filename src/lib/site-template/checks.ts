@@ -3,7 +3,10 @@
  * asked whether it is happy with its own work; these decide. The owner can still override a failure when reviewing.
  */
 import type { CustomerFacts, Section, SiteContent } from "./schema";
-import { FIELD_LIMITS, LOOKS, SECTION_KINDS } from "./schema";
+import { AVOID_WORDING } from "./avoid-wording";
+import { findCopiedRun } from "./originality";
+import { FIELD_LIMITS, LOOKS, SECTION_KINDS, WORD_LIMITS } from "./schema";
+import { sentencesOf, wordCount } from "./text";
 import type { SectorPreset } from "./presets";
 
 export type CheckIssue = { code: string; message: string; where?: string };
@@ -21,6 +24,32 @@ const PLACEHOLDERS = [
   /\bsample text\b/i,
   /\binsert\b.{0,20}\bhere\b/i,
 ];
+
+/**
+ * Filler that says nothing. Phrases are lower-case with spaces: the check ignores case and treats hyphens as spaces. A
+ * phrase the customer wrote themselves is theirs, so it is never flagged.
+ */
+export const FILLER_PHRASES = [
+  "passionate team",
+  "passionate about",
+  "cutting edge",
+  "one stop shop",
+  "state of the art",
+  "world class",
+  "second to none",
+  "look no further",
+  "next level",
+  "we pride ourselves",
+  "top notch",
+  "industry leading",
+  "unparalleled",
+  "unrivalled",
+  "game changing",
+  "tailored solutions",
+] as const;
+
+const plain = (text: string) => text.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+const fillerIn = (text: string) => FILLER_PHRASES.find((phrase) => plain(text).includes(phrase));
 
 const MARKUP = /<[a-z/!][^>]*>|https?:\/\/|www\./i;
 const PRICE = /£\s?\d[\d,]*(?:\.\d{1,2})?/g;
@@ -116,7 +145,8 @@ function isFilled(s: Section): boolean {
   }
 }
 
-export function checkSite(content: SiteContent, facts: CustomerFacts, preset: SectorPreset): CheckResult {
+/** `avoid` is wording from sites we shouldn't copy; it defaults to the list kept in avoid-wording.ts. */
+export function checkSite(content: SiteContent, facts: CustomerFacts, preset: SectorPreset, options: { avoid?: readonly string[] } = {}): CheckResult {
   const issues: CheckIssue[] = [];
   const flag = (code: string, message: string, where?: string) => issues.push({ code, message, where });
 
@@ -144,6 +174,7 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
   if (!/^#[0-9a-f]{6}$/i.test(content.theme.colour)) flag("bad-colour", "The theme colour must be a hex colour such as #1a2b3c.", "theme.colour");
 
   const fields = textFields(content);
+  const theirWords = [facts.about ?? "", ...(facts.details ?? []).map((d) => d.value)].join(" ");
 
   for (const f of fields) {
     if (f.limit && f.text.length > f.limit) flag("too-long", `Text is ${f.text.length} characters; the limit is ${f.limit}.`, f.where);
@@ -166,6 +197,34 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
       const hit = f.text.match(claim.pattern);
       if (hit) flag("restricted-claim", `${claim.reason} ("${hit[0]}")`, f.where);
     }
+  }
+
+  // Quality: one clear next step, short plain wording, and something for search to show.
+  const hero = content.sections.find((s) => s.kind === "hero");
+  const closing = content.sections.find((s) => s.kind === "cta");
+  if (hero && hero.kind === "hero") {
+    if (!hero.cta.trim()) flag("cta-missing", "The top of the page needs one clear next step.", "hero.cta");
+    if (!hero.intro.trim()) flag("no-description", "The page needs an intro: search results show it as the page description.", "hero.intro");
+    if (closing && closing.kind === "cta" && norm(closing.cta) !== norm(hero.cta)) {
+      flag("cta-mismatch", `The page should point to one next step, but the top says "${hero.cta}" and the end says "${closing.cta}".`, "cta");
+    }
+  }
+  const theirs = plain(theirWords);
+  const avoid = options.avoid ?? AVOID_WORDING;
+  for (const f of fields) {
+    // The customer's own names and prices, and the facts they ticked, are theirs: only wording is judged.
+    if (f.where.includes(".facts.") || f.where === "business.name" || /\.items\[\d+\]\.(name|price)$/.test(f.where)) continue;
+    const words = f.where.endsWith(".hero.headline") ? WORD_LIMITS.headline : f.where.endsWith(".hero.intro") || f.where.endsWith(".enquiry.intro") ? WORD_LIMITS.intro : undefined;
+    if (words && wordCount(f.text) > words) flag("too-many-words", `Use at most ${words} words here; this has ${wordCount(f.text)}.`, f.where);
+    const filler = fillerIn(f.text);
+    if (filler && !theirs.includes(filler)) flag("filler", `"${filler}" says nothing. Say what the business does instead.`, f.where);
+    for (const sentence of sentencesOf(f.text)) {
+      if (wordCount(sentence) > WORD_LIMITS.sentence && !theirs.includes(plain(sentence))) {
+        flag("long-sentence", `A sentence of ${wordCount(sentence)} words is hard to read. Keep sentences under ${WORD_LIMITS.sentence + 1} words.`, f.where);
+      }
+    }
+    const copied = findCopiedRun(f.text, avoid, theirWords);
+    if (copied) flag("copied-wording", `These words match another site exactly: "${copied}". Write it in your own words.`, f.where);
   }
 
   // The customer's own details appear.
@@ -194,7 +253,6 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
 
   // Nothing invented: every price, email, phone number and address in the text must come from the customer.
   // Whatever the customer typed in their own words counts as theirs too: a price, an email or a number they wrote.
-  const theirWords = [facts.about ?? "", ...(facts.details ?? []).map((d) => d.value)].join(" ");
   const knownPrices = new Set([...facts.services.map((s) => s.price).filter(Boolean), ...(theirWords.match(PRICE) ?? [])].map((p) => priceKey(p!)));
   const knownEmails = new Set([facts.email, ...(theirWords.match(EMAIL) ?? [])].filter(Boolean).map((e) => norm(e!)));
   const knownPhones = new Set([facts.phone, ...(theirWords.match(PHONE) ?? [])].filter(Boolean).map((p) => digits(p!)));

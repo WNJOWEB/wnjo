@@ -117,7 +117,7 @@ describe("buildSite", () => {
   it("saves a build that fails the checks, marked failed with its reasons, for the owner to review", async () => {
     const store = memoryStore();
     const bad = { ...copy, hero: { headline: "Your headline here", intro: "x", cta: "y" } };
-    const r = await run(provider([final(bad), final(bad)]), store, { sector: "barber", answers });
+    const r = await run(provider([final(bad), final(bad), final(bad)]), store, { sector: "barber", answers });
     expect(r).toMatchObject({ ok: true, checksOk: false });
     expect(store.saved[0].checksOk).toBe(false);
     expect(store.saved[0].issues.some((i) => i.code === "placeholder")).toBe(true);
@@ -126,7 +126,7 @@ describe("buildSite", () => {
   it("still saves a draft when the AI gives nothing usable: our own wording and the customer's words, marked failed for a person", async () => {
     const store = memoryStore();
     const junk: ProviderResponse = { kind: "final", text: "no json", usage: { inputTokens: 0, outputTokens: 0, costPence: 1 } };
-    const r = await run(provider([junk, junk]), store, { sector: "barber", answers });
+    const r = await run(provider([junk, junk, junk]), store, { sector: "barber", answers });
     expect(r).toMatchObject({ ok: true, checksOk: false });
     expect(store.saved).toHaveLength(1);
     expect(store.saved[0].checksOk).toBe(false);

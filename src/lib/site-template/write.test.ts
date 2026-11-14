@@ -148,9 +148,9 @@ describe("writeSite", () => {
     expect(provider.calls[1]).toContain("not JSON");
   });
 
-  it("flags a site that still fails after the retry, and hands back the content and reasons for review", async () => {
+  it("flags a site that still fails after three tries, and hands back the content and reasons for review", async () => {
     const bad = JSON.stringify(copy({ hero: { headline: "Your headline here", intro: "Hello", cta: "Book" } }));
-    const r = await writeSite(ctx(fake([final(bad), final(bad)])), input);
+    const r = await writeSite(ctx(fake([final(bad), final(bad), final(bad)])), input);
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.reason).toMatch(/checks/);
@@ -161,7 +161,7 @@ describe("writeSite", () => {
 
   it("fails clearly when the customer gave no opening hours, which a barber site needs", async () => {
     const noHours = { ...input, facts: { ...SAMPLE_BARBER_FACTS, hours: undefined } };
-    const r = await writeSite(ctx(fake([final(JSON.stringify(copy())), final(JSON.stringify(copy()))])), noHours);
+    const r = await writeSite(ctx(fake([final(JSON.stringify(copy())), final(JSON.stringify(copy())), final(JSON.stringify(copy()))])), noHours);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.issues?.some((i) => i.code === "missing-section")).toBe(true);
   });

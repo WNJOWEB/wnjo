@@ -2,14 +2,16 @@
  * The writing step for a template build. Our code assembles every fact (services, prices, hours, contact details,
  * photos) straight from what the customer gave. The model writes only the wording around them, in a small JSON
  * reply, so a price or an opening time can't be invented: there is nowhere in the reply to put one. The checks still
- * run on the finished site, and a build that fails them is tried once more with the reasons, then flagged for review.
+ * run on the finished site, and a build that fails them is tried again with the reasons, up to three times, then flagged for review.
  */
+import { MAX_ROUNDS } from "@/lib/ai/limits";
 import { ProviderError, type AiProvider } from "@/lib/ai/provider";
 import { extractJson } from "@/lib/ai/website-plan";
-import { checkSite, describeIssues, type CheckIssue } from "./checks";
+import { checkSite, describeIssues, FILLER_PHRASES, type CheckIssue } from "./checks";
 import type { SectorPreset } from "./presets";
 import type { CustomerFacts, GalleryImage, Look, Section, SiteContent } from "./schema";
-import { FIELD_LIMITS } from "./schema";
+import { FIELD_LIMITS, WORD_LIMITS } from "./schema";
+import { cutWords, wordCount } from "./text";
 
 export type SiteCopy = {
   tagline: string;
@@ -82,7 +84,8 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     "- tagline: optional, a short line under the business name. Leave it empty if nothing true and short fits.",
     ...wanted,
     `Style example (the [brackets] stand for the customer's own facts: never copy the example and never leave a bracket in): headline "${preset.copy.example.headline}"; intro "${preset.copy.example.intro}"`,
-    "Headline: under twelve words. Intro: under forty words.",
+    `Headline: at most ${WORD_LIMITS.headline} words. Intro: at most ${WORD_LIMITS.intro} words. Keep every sentence under ${WORD_LIMITS.sentence + 1} words.`,
+    `Plain English, specific to this business. No filler such as: ${FILLER_PHRASES.map((p) => `"${p}"`).join(", ")}. Never copy wording from another website.`,
     "FAQ: at most four questions a new customer would ask, answered only from the facts above. Leave the list empty if the facts don't support any.",
     `Descriptions: one short line per ${preset.itemsLabel === "Menu items" ? "menu item" : "service"}, using only its name. Skip any you can't describe without guessing.`,
     input.change ? `Apply this change: ${input.change.slice(0, 1000)}` : "",
@@ -176,9 +179,10 @@ export function defaultCopy(input: WriteInput): SiteCopy {
   const places = facts.areas?.length ? facts.areas : [];
   const place = places.length ? joinList(places) : townOf(facts.address);
   const headline = place ? `${c.trade} ${places.length ? (c.areasPreposition ?? "for") : "in"} ${place}` : facts.businessName;
+  const fits = headline.length <= FIELD_LIMITS.headline && wordCount(headline) <= WORD_LIMITS.headline;
   return {
     tagline: "",
-    hero: { headline: headline.length <= FIELD_LIMITS.headline ? headline : facts.businessName, intro: cut(facts.about ?? "", FIELD_LIMITS.intro), cta: c.heroCta },
+    hero: { headline: fits ? headline : facts.businessName, intro: cutWords(cut(facts.about ?? "", FIELD_LIMITS.intro), WORD_LIMITS.intro), cta: c.heroCta },
     headings: c.headings,
     descriptions: {},
     area: places.length ? `${c.areaLead} ${joinList(places)}.` : facts.address ? `We are at ${facts.address}.` : "",
@@ -283,7 +287,7 @@ export async function writeSite(ctx: WriteContext, input: WriteInput): Promise<W
   let retryIssues: string | undefined;
   let last: { content: SiteContent; issues: CheckIssue[] } | undefined;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MAX_ROUNDS; attempt++) {
     if (spent >= ctx.maxPence) return { ok: false, reason: "The spending limit for this website has been reached.", ...last, costPence: spent - start };
     let reply;
     try {
@@ -309,7 +313,7 @@ export async function writeSite(ctx: WriteContext, input: WriteInput): Promise<W
     last = { content, issues: result.issues };
     retryIssues = describeIssues(result);
   }
-  if (last) return { ok: false, reason: "The site did not pass the checks after two tries.", ...last, costPence: spent - start };
+  if (last) return { ok: false, reason: "The site did not pass the checks after three tries.", ...last, costPence: spent - start };
   // No usable reply at all: build the site from our own wording and the customer's words, so there is always a draft.
   const fallback = assembleSite(input, defaultCopy(input));
   return {
