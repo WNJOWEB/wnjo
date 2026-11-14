@@ -128,7 +128,7 @@ describe("the template site answers in a brief", () => {
 
   it("show in the plain-text brief", () => {
     const text = formatBrief({ ...EMPTY_BRIEF, site: { sector: "barber", answers: { businessName: "Hartley & Sons" } } });
-    expect(text).toContain("Template site: Barber, Hartley & Sons");
+    expect(text).toContain("Template site: Grooming, Hartley & Sons");
   });
 });
 

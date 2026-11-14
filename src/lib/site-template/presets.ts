@@ -50,7 +50,7 @@ export type SectorPreset = {
 
 export const BARBER_PRESET: SectorPreset = {
   id: "barber",
-  label: "Barber",
+  label: "Grooming",
   group: "booking",
   defaultLook: "classic",
   itemsLabel: "Services",
@@ -78,7 +78,7 @@ export const BARBER_PRESET: SectorPreset = {
 
 export const CAFE_PRESET: SectorPreset = {
   id: "cafe",
-  label: "Café",
+  label: "Hospitality",
   group: "hospitality",
   defaultLook: "warm",
   itemsLabel: "Menu items",
@@ -106,7 +106,7 @@ export const CAFE_PRESET: SectorPreset = {
 
 export const ELECTRICIAN_PRESET: SectorPreset = {
   id: "electrician",
-  label: "Electrician",
+  label: "Tradesman",
   group: "trades",
   defaultLook: "bold",
   itemsLabel: "Services",
@@ -134,7 +134,7 @@ export const ELECTRICIAN_PRESET: SectorPreset = {
 
 export const PHYSIO_PRESET: SectorPreset = {
   id: "physio",
-  label: "Physio",
+  label: "Health",
   group: "booking",
   defaultLook: "minimal",
   itemsLabel: "Treatments",
@@ -170,7 +170,7 @@ export const PHYSIO_PRESET: SectorPreset = {
 
 export const MASSAGE_PRESET: SectorPreset = {
   id: "massage",
-  label: "Massage and wellbeing",
+  label: "Wellbeing",
   group: "booking",
   defaultLook: "warm",
   itemsLabel: "Treatments",
@@ -206,7 +206,7 @@ export const MASSAGE_PRESET: SectorPreset = {
 
 export const FITNESS_PRESET: SectorPreset = {
   id: "fitness",
-  label: "Fitness and leisure",
+  label: "Fitness",
   group: "booking",
   defaultLook: "bold",
   itemsLabel: "Classes and sessions",
@@ -242,7 +242,7 @@ export const FITNESS_PRESET: SectorPreset = {
 
 export const HOLIDAY_LET_PRESET: SectorPreset = {
   id: "holiday-let",
-  label: "Holiday let",
+  label: "Accommodation",
   group: "hospitality",
   defaultLook: "minimal",
   itemsLabel: "Stays",
