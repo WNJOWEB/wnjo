@@ -38,7 +38,7 @@ To build:
 4. Test against Claude Haiku 5.5 once the key is set, and set the ceiling from the measured cost.
 
 ## Owner decisions
-- Decided: the ceiling is £1 a website, and there are no word limits.
+- Decided: the ceiling is £1 a website. Word limits: headline 8, intro 18, sentence 18.
 
 ## Making a small model enough (14 November 2026, built)
 The aim is a template good enough that a small, cheap model (Haiku) can finish the website.
@@ -74,8 +74,9 @@ with the reasons, up to three times, and then goes to a person marked failed.
   (`cta-missing`, `cta-mismatch`).
 - **Plain English:** no filler phrases (`FILLER_PHRASES`, for example "passionate team", "cutting-edge", "one-stop
   shop"). The customer's own words are never judged.
-- **Length:** no word limits (owner, 14 November 2026). Only the character limits the page layout needs apply
-  (`FIELD_LIMITS` in `schema.ts`), so text can't break the design.
+- **Length:** a headline of at most 8 words, an intro of at most 18, and no sentence over 18 (`too-many-words`,
+  `long-sentence`). Set by the owner on 14 November 2026, from the longest of our sample sites (`WORD_LIMITS` in
+  `schema.ts`). Character limits for the layout still apply too (`FIELD_LIMITS`).
 - **Search basics:** the page has an intro, which is its description, and every image has alt text (`no-description`,
   `missing-alt`). There is one headline per page, because a template has one top section. The page title is not
   checked, because a template does not set one yet.

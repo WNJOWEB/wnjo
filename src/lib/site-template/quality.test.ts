@@ -6,11 +6,12 @@ import { checkSite, FILLER_PHRASES } from "./checks";
 import { COPY_RUN_WORDS, findCopiedRun } from "./originality";
 import { BARBER_PRESET } from "./presets";
 import { SAMPLES } from "./sample";
-import { FIELD_LIMITS, type SiteContent } from "./schema";
-import { wordsOf } from "./text";
+import { FIELD_LIMITS, WORD_LIMITS, type SiteContent } from "./schema";
+import { cutWords, sentencesOf, wordCount, wordsOf } from "./text";
 import { buildCopyPrompt, defaultCopy, writeSite } from "./write";
 
 const sample = SAMPLES.barber;
+const words = (n: number) => Array.from({ length: n }, (_, i) => `word${String.fromCharCode(97 + (i % 26))}`).join(" ");
 const codes = (content: SiteContent, facts = sample.facts, avoid: readonly string[] = []) => checkSite(content, facts, BARBER_PRESET, { avoid }).issues.map((i) => i.code);
 
 /** A copy of the barber sample with one change made to a section. */
@@ -43,6 +44,26 @@ describe("one clear next step", () => {
   it("flags a page with no next step at the top, and no intro for search to show", () => {
     const content = changed("hero", (s) => ((s.cta = " "), (s.intro = "")));
     expect(codes(content)).toEqual(expect.arrayContaining(["cta-missing", "no-description"]));
+  });
+});
+
+describe("short wording", () => {
+  it("allows eight words in a headline and eighteen in an intro, and no more", () => {
+    expect(codes(changed("hero", (s) => ((s.headline = words(WORD_LIMITS.headline)), (s.intro = words(WORD_LIMITS.intro)))))).not.toContain("too-many-words");
+    expect(codes(changed("hero", (s) => (s.headline = words(WORD_LIMITS.headline + 1))))).toContain("too-many-words");
+    expect(codes(changed("hero", (s) => (s.intro = words(WORD_LIMITS.intro + 1))))).toContain("too-many-words");
+  });
+  it("applies to the request form's intro as well", () => {
+    expect(codes(changed("enquiry", (s) => (s.intro = words(WORD_LIMITS.intro + 1))))).toContain("too-many-words");
+  });
+  it("flags a sentence of more than eighteen words, and allows one of eighteen", () => {
+    expect(codes(changed("hero", (s) => (s.intro = `${words(19)}.`)))).toContain("long-sentence");
+    expect(codes(changed("hero", (s) => (s.intro = `${words(18)}.`)))).not.toContain("long-sentence");
+    expect(codes(changed("hero", (s) => (s.intro = `${words(10)}. ${words(10)}.`)))).not.toContain("long-sentence");
+  });
+  it("never judges the customer's own long sentence", () => {
+    const long = `${words(25)}.`;
+    expect(codes(changed("hero", (s) => (s.intro = long)), { ...sample.facts, about: long })).not.toContain("long-sentence");
   });
 });
 
@@ -95,7 +116,15 @@ describe("copied wording", () => {
 describe("the helpers", () => {
   it("count words without punctuation, and keep apostrophes", () => {
     expect(wordsOf("Don't panic, it's only hair!")).toEqual(["don't", "panic", "it's", "only", "hair"]);
-    expect(wordsOf("")).toEqual([]);
+    expect(wordCount("")).toBe(0);
+  });
+  it("split sentences", () => {
+    expect(sentencesOf("One. Two? Three!  Four")).toEqual(["One.", "Two?", "Three!", "Four"]);
+  });
+  it("cut to a word limit at the end of a sentence if one fits, otherwise at a word", () => {
+    expect(cutWords("First sentence here. Second sentence here too.", 5)).toBe("First sentence here.");
+    expect(cutWords("one two three four five six seven", 4)).toBe("one two three four");
+    expect(cutWords("short", 18)).toBe("short");
   });
 });
 
@@ -136,17 +165,16 @@ describe("the writer", () => {
     expect(prompt).toContain("Never copy wording from another website");
   });
 
-  it("sets no limit on words, only the characters the layout can hold", () => {
+  it("asks for the word limits in the prompt, so the model knows them before it writes", () => {
     const prompt = buildCopyPrompt(input);
-    expect(prompt).not.toMatch(/at most \d+ words/);
-    const long = `${"A sentence that goes on and on. ".repeat(40)}`;
-    expect(codes(changed("hero", (s) => (s.intro = long.slice(0, 280))))).toEqual([]);
+    expect(prompt).toContain("Headline: at most 8 words. Intro: at most 18 words. Keep every sentence to 18 words or fewer.");
   });
 
   it("keeps our own fallback wording within the characters the layout holds", () => {
     const long = Array.from({ length: 30 }, (_, i) => `Sentence number ${i + 1} is here.`).join(" ");
     const copy = defaultCopy({ ...input, facts: { ...facts, about: long } });
     expect(copy.hero.intro.length).toBeLessThanOrEqual(FIELD_LIMITS.intro);
+    expect(wordCount(copy.hero.intro)).toBeLessThanOrEqual(WORD_LIMITS.intro);
     const places = ["Leeds", "Wakefield", "Harrogate", "St Helens", "Kingston upon Hull", "Newcastle upon Tyne", "Middlesbrough", "Wolverhampton"];
     const trade = defaultCopy({ preset: BARBER_PRESET, facts: { ...SAMPLES.plumbing.facts, areas: places }, look: "bold", colour: "#2b2b2b" });
     expect(trade.hero.headline.length).toBeLessThanOrEqual(FIELD_LIMITS.headline);

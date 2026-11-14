@@ -10,7 +10,8 @@ import { extractJson } from "@/lib/ai/website-plan";
 import { checkSite, describeIssues, FILLER_PHRASES, type CheckIssue } from "./checks";
 import type { SectorPreset } from "./presets";
 import type { CustomerFacts, GalleryImage, Look, Section, SiteContent } from "./schema";
-import { FIELD_LIMITS } from "./schema";
+import { FIELD_LIMITS, WORD_LIMITS } from "./schema";
+import { cutWords, wordCount } from "./text";
 
 export type SiteCopy = {
   tagline: string;
@@ -83,6 +84,7 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     "- tagline: optional, a short line under the business name. Leave it empty if nothing true and short fits.",
     ...wanted,
     `Style example (the [brackets] stand for the customer's own facts: never copy the example and never leave a bracket in): headline "${preset.copy.example.headline}"; intro "${preset.copy.example.intro}"`,
+    `Headline: at most ${WORD_LIMITS.headline} words. Intro: at most ${WORD_LIMITS.intro} words. Keep every sentence to ${WORD_LIMITS.sentence} words or fewer.`,
     `Plain English, specific to this business. No filler such as: ${FILLER_PHRASES.map((p) => `"${p}"`).join(", ")}. Never copy wording from another website.`,
     "FAQ: at most four questions a new customer would ask, answered only from the facts above. Leave the list empty if the facts don't support any.",
     `Descriptions: one short line per ${preset.itemsLabel === "Menu items" ? "menu item" : "service"}, using only its name. Skip any you can't describe without guessing.`,
@@ -177,10 +179,10 @@ export function defaultCopy(input: WriteInput): SiteCopy {
   const places = facts.areas?.length ? facts.areas : [];
   const place = places.length ? joinList(places) : townOf(facts.address);
   const headline = place ? `${c.trade} ${places.length ? (c.areasPreposition ?? "for") : "in"} ${place}` : facts.businessName;
-  const fits = headline.length <= FIELD_LIMITS.headline;
+  const fits = headline.length <= FIELD_LIMITS.headline && wordCount(headline) <= WORD_LIMITS.headline;
   return {
     tagline: "",
-    hero: { headline: fits ? headline : facts.businessName, intro: cut(facts.about ?? "", FIELD_LIMITS.intro), cta: c.heroCta },
+    hero: { headline: fits ? headline : facts.businessName, intro: cutWords(cut(facts.about ?? "", FIELD_LIMITS.intro), WORD_LIMITS.intro), cta: c.heroCta },
     headings: c.headings,
     descriptions: {},
     area: places.length ? `${c.areaLead} ${joinList(places)}.` : facts.address ? `We are at ${facts.address}.` : "",

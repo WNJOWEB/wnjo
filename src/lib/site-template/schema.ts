@@ -33,6 +33,9 @@ export const FIELD_LIMITS = {
   items: 12,
 } as const;
 
+/** The most words in the places the model writes: the longest of our sample sites sets the bar. Short reads better. */
+export const WORD_LIMITS = { headline: 8, intro: 18, sentence: 18 } as const;
+
 export type ServiceItem = { name: string; description?: string; price?: string };
 export type HoursItem = { day: string; open?: string; close?: string; closed?: boolean };
 export type GalleryImage = { src: string; alt: string };

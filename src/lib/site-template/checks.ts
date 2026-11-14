@@ -5,7 +5,8 @@
 import type { CustomerFacts, Section, SiteContent } from "./schema";
 import { AVOID_WORDING } from "./avoid-wording";
 import { findCopiedRun } from "./originality";
-import { FIELD_LIMITS, LOOKS, SECTION_KINDS } from "./schema";
+import { FIELD_LIMITS, LOOKS, SECTION_KINDS, WORD_LIMITS } from "./schema";
+import { sentencesOf, wordCount } from "./text";
 import type { SectorPreset } from "./presets";
 
 export type CheckIssue = { code: string; message: string; where?: string };
@@ -198,7 +199,7 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
     }
   }
 
-  // Quality: one clear next step, no filler, no copying, and something for search to show.
+  // Quality: one clear next step, short wording, no filler, no copying, and something for search to show.
   const hero = content.sections.find((s) => s.kind === "hero");
   const closing = content.sections.find((s) => s.kind === "cta");
   if (hero && hero.kind === "hero") {
@@ -213,8 +214,15 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
   for (const f of fields) {
     // The customer's own names and prices, and the facts they ticked, are theirs: only wording is judged.
     if (f.where.includes(".facts.") || f.where === "business.name" || /\.items\[\d+\]\.(name|price)$/.test(f.where)) continue;
+    const words = f.where.endsWith(".hero.headline") ? WORD_LIMITS.headline : f.where.endsWith(".hero.intro") || f.where.endsWith(".enquiry.intro") ? WORD_LIMITS.intro : undefined;
+    if (words && wordCount(f.text) > words) flag("too-many-words", `Use at most ${words} words here; this has ${wordCount(f.text)}.`, f.where);
     const filler = fillerIn(f.text);
     if (filler && !theirs.includes(filler)) flag("filler", `"${filler}" says nothing. Say what the business does instead.`, f.where);
+    for (const sentence of sentencesOf(f.text)) {
+      if (wordCount(sentence) > WORD_LIMITS.sentence && !theirs.includes(plain(sentence))) {
+        flag("long-sentence", `A sentence of ${wordCount(sentence)} words is too long. Keep sentences to ${WORD_LIMITS.sentence} words or fewer.`, f.where);
+      }
+    }
     const copied = findCopiedRun(f.text, avoid, theirWords);
     if (copied) flag("copied-wording", `These words match another site exactly: "${copied}". Write it in your own words.`, f.where);
   }
