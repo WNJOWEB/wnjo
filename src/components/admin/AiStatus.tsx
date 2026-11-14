@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { nextBriefingAt, type Briefing } from "@/lib/briefing";
+import { SECTOR_PRESETS } from "@/lib/site-template/presets";
+
+const TEMPLATE_LABELS: Record<string, string> = Object.fromEntries(Object.values(SECTOR_PRESETS).map((p) => [p.id, p.label]));
+const TEMPLATE_IDS = Object.keys(SECTOR_PRESETS);
 
 /**
  * The AI workforce: agents and their switches, recent tasks, budgets, and the approval queue. Owners and admins
@@ -32,6 +36,7 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<TemplateTestResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const run = async () => {
     setRunning(true);
@@ -39,17 +44,37 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
     setResult(null);
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
-    const res = token
-      ? await fetch("/api/admin/ai/template-test", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          body: JSON.stringify({ runs: 1 }),
-        }).catch(() => null)
-      : null;
+    if (!token) {
+      setRunning(false);
+      setNote("Sign in again, then run the test.");
+      return;
+    }
+    // One template per request, so no single call runs long enough to be cut off.
+    const rows: TemplateTestResult["rows"] = [];
+    let model = "";
+    for (const id of TEMPLATE_IDS) {
+      setProgress(`Writing ${TEMPLATE_LABELS[id] ?? id}, ${rows.length + 1} of ${TEMPLATE_IDS.length}…`);
+      const res = await fetch("/api/admin/ai/template-test", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ runs: 1, template: id }),
+      }).catch(() => null);
+      const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
+      if (!res?.ok || !body || body.error) {
+        setRunning(false);
+        setProgress(null);
+        setNote(body?.error ?? "The test stopped part way. Please try again.");
+        return;
+      }
+      model = body.model;
+      rows.push(...body.rows);
+    }
+    const passed = rows.reduce((n, r) => n + r.passed, 0);
+    const total = rows.reduce((n, r) => n + r.runs, 0);
+    const pence = rows.reduce((n, r) => n + r.pencePerSite * r.runs, 0);
+    setResult({ model, rows, passed, total, pencePerSite: Math.round((pence / total) * 100) / 100 });
+    setProgress(null);
     setRunning(false);
-    const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
-    if (res?.ok && body && !body.error) setResult(body);
-    else setNote(body?.error ?? "The test couldn't run. Please try again.");
   };
 
   return (
@@ -59,8 +84,9 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
         Writes each template once with the AI and checks the site. It costs a fraction of a penny per template.
       </p>
       <button type="button" className="btn btn--secondary" onClick={run} disabled={running}>
-        {running ? "Writing the templates…" : "Run the template test"}
+        {running ? "Running…" : "Run the template test"}
       </button>
+      {progress && <p className="acct-meta">{progress}</p>}
       {note && <p className="acct-meta">{note}</p>}
       {result && (
         <>

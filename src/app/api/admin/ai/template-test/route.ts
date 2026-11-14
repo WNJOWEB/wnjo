@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { providerFromEnv } from "@/lib/ai/agent-runtime";
 import { serviceClient } from "@/lib/quote-store";
-import { runTemplateTest } from "@/lib/site-template/template-test";
+import { runTemplateTest, TEMPLATE_IDS } from "@/lib/site-template/template-test";
 import { staffFromRequest } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
@@ -21,10 +21,13 @@ export async function POST(request: NextRequest) {
   if (staff.role !== "owner" && staff.role !== "admin") return NextResponse.json({ error: "Only the owner or an admin can run this test." }, { status: 403 });
   const provider = providerFromEnv();
   if (!provider) return NextResponse.json({ error: "The AI isn't connected yet. It needs ANTHROPIC_API_KEY in Vercel." }, { status: 503 });
-  const body = ((await request.json().catch(() => null)) ?? {}) as { runs?: unknown };
+  const body = ((await request.json().catch(() => null)) ?? {}) as { runs?: unknown; template?: unknown };
   const runs = typeof body.runs === "number" ? body.runs : 1;
+  // One template per request keeps each call well inside the time limit. Without one, every template is tested.
+  const only = typeof body.template === "string" && TEMPLATE_IDS.includes(body.template) ? [body.template] : undefined;
+  if (typeof body.template === "string" && !only) return NextResponse.json({ error: "Unknown template." }, { status: 422 });
   try {
-    return NextResponse.json(await runTemplateTest(provider, runs));
+    return NextResponse.json(await runTemplateTest(provider, runs, only));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "The test couldn't run." }, { status: 502 });
   }

@@ -12,10 +12,15 @@ import { writeSite } from "./write";
 export type TemplateTestRow = { template: string; passed: number; runs: number; pencePerSite: number; problems: string[] };
 export type TemplateTestResult = { model: string; rows: TemplateTestRow[]; passed: number; total: number; pencePerSite: number };
 
-export async function runTemplateTest(provider: AiProvider, runs: number): Promise<TemplateTestResult> {
+/** The ids of every template, in the order they are tested. */
+export const TEMPLATE_IDS = Object.keys(SECTOR_PRESETS);
+
+/** Tests every template, or only the ones named, so a slow run can be split across several requests. */
+export async function runTemplateTest(provider: AiProvider, runs: number, only?: string[]): Promise<TemplateTestResult> {
   const count = Math.min(3, Math.max(1, Math.floor(runs)));
   const rows: TemplateTestRow[] = [];
-  for (const preset of Object.values(SECTOR_PRESETS)) {
+  const presets = Object.values(SECTOR_PRESETS).filter((p) => !only || only.includes(p.id));
+  for (const preset of presets) {
     const parsed = parseAnswers(SAMPLE_ANSWERS[preset.id], preset, { colour: "#1f3a34" });
     if (!parsed.ok) throw new Error(`${preset.label}: sample answers not accepted`);
     const row: TemplateTestRow = { template: preset.label, passed: 0, runs: count, pencePerSite: 0, problems: [] };
