@@ -59,7 +59,6 @@ describe("buildSite", () => {
     const store = memoryStore();
     const r = await run(p, store, { sector: "barber", answers, plan: "essential" });
     expect(r).toMatchObject({ ok: true, checksOk: true });
-    expect(p.prompts[0]).not.toContain("- facts");
     expect(p.prompts[0]).not.toContain("- faq");
     const kinds = store.saved[0].content.sections.map((s) => s.kind);
     expect(kinds).not.toContain("facts");
@@ -69,7 +68,6 @@ describe("buildSite", () => {
   it("keeps every section when no plan is given", async () => {
     const p = provider([final(copy)]);
     await run(p, memoryStore(), { sector: "barber", answers });
-    expect(p.prompts[0]).toContain("- facts");
     expect(p.prompts[0]).toContain("- faq");
   });
 
@@ -125,12 +123,36 @@ describe("buildSite", () => {
     expect(store.saved[0].issues.some((i) => i.code === "placeholder")).toBe(true);
   });
 
-  it("saves nothing when the AI never produced usable content", async () => {
+  it("still saves a draft when the AI gives nothing usable: our own wording and the customer's words, marked failed for a person", async () => {
     const store = memoryStore();
     const junk: ProviderResponse = { kind: "final", text: "no json", usage: { inputTokens: 0, outputTokens: 0, costPence: 1 } };
     const r = await run(provider([junk, junk]), store, { sector: "barber", answers });
-    expect(r.ok).toBe(false);
-    expect(store.saved).toHaveLength(0);
+    expect(r).toMatchObject({ ok: true, checksOk: false });
+    expect(store.saved).toHaveLength(1);
+    expect(store.saved[0].checksOk).toBe(false);
+    const hero = store.saved[0].content.sections.find((s) => s.kind === "hero");
+    expect(hero).toMatchObject({ headline: "Barbers in Leeds", intro: "A family barber shop on the high street.", cta: "Request a booking" });
+    expect(store.saved[0].content.sections.map((s) => s.kind)).toEqual(expect.arrayContaining(["hero", "services", "hours", "enquiry", "cta"]));
+  });
+
+  it("completes a site from a reply that gives only a headline and an intro, with our own wording for the rest", async () => {
+    const store = memoryStore();
+    const minimal = { hero: { headline: "Sharp cuts on High Street", intro: "Walk-ins and bookings at Hartley & Sons." } };
+    const r = await run(provider([final(minimal)]), store, { sector: "barber", answers });
+    expect(r).toMatchObject({ ok: true, checksOk: true, issues: [] });
+    const kinds = store.saved[0].content.sections.map((s) => s.kind);
+    expect(kinds).toEqual(["hero", "services", "hours", "facts", "area", "enquiry", "cta"]);
+    const enquiry = store.saved[0].content.sections.find((s) => s.kind === "enquiry");
+    expect(enquiry).toMatchObject({ heading: "Request a booking", cta: "Send request" });
+  });
+
+  it("asks the model for only the short reply, with a style example and no headings or button labels", async () => {
+    const p = provider([final(copy)]);
+    await run(p, memoryStore(), { sector: "barber", answers });
+    expect(p.prompts[0]).toContain("Style example");
+    expect(p.prompts[0]).toContain("Sharp cuts on [street]");
+    expect(p.prompts[0]).not.toContain('"headings"');
+    expect(p.prompts[0]).not.toContain('"closing"');
   });
 
   it("respects the website's spending limit, counting spend from other steps", async () => {

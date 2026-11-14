@@ -40,3 +40,29 @@ To build:
 ## Owner decisions
 - Confirm the £10 ceiling.
 - Confirm the word limits for headlines and intros (suggested: headline 12 words, intro 40 words).
+
+## Making a small model enough (14 November 2026, built)
+The aim is a template good enough that a small, cheap model (Haiku) can finish the website.
+- **The template writes almost everything.** Headings, button labels, the request text, the closing line and the area
+  text are fixed wording in each template (`copy` in `presets.ts`), written once by us. None of it makes a claim about
+  the business.
+- **The model writes only what needs a voice:** the hero headline and intro, plus an optional tagline, short service
+  descriptions and up to four FAQ answers. It is shown a style example for its own sector, with [brackets] where the
+  customer's facts go, and a bracket left in is caught by the placeholder check.
+- **It works from the customer's own words.** Every template asks "What makes your business different?" and three or
+  four questions of its own. The model may rephrase the answers and never add to them.
+- **There is always a draft.** If the model's reply can't be used, the build uses our fixed wording, a headline from
+  the trade and the place, and the customer's own words as the intro. It passes every check, is marked failed so a
+  person must read it before it is released, and says so.
+- **Every template is tested without a model:** a site built from our wording alone passes every check, and so does a
+  site finished from a reply of only a headline and an intro.
+
+Measuring a real model: `src/lib/site-template/eval.test.ts` writes every template several times with the configured
+model and reports the pass rate and the cost per site. It does nothing in the normal run. To try Haiku:
+
+    AI_EVAL=1 AI_PROVIDER=anthropic ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-haiku-5-5 \
+    ANTHROPIC_INPUT_PENCE_PER_MILLION_TOKENS=7 ANTHROPIC_OUTPUT_PENCE_PER_MILLION_TOKENS=37 \
+    npx vitest run src/lib/site-template/eval.test.ts
+
+It fails if fewer than 90% of sites pass on the model's own wording (`AI_EVAL_MIN_PASS` changes that). Not run yet: it
+needs an Anthropic key.

@@ -36,18 +36,15 @@ export type WriteInput = {
 };
 
 export const COPY_SYSTEM =
-  "You are a copywriter at WINJO DIGITAL, a UK web design agency. Write the wording for a small business website in " +
-  "plain British English. You are given the business's facts and the sections of its site. Never invent anything: no " +
-  "prices, times, phone numbers, addresses, names, reviews, awards or years in business. Do not quote any price, " +
-  "time or number in your wording; the site shows those itself. No HTML and no links. Reply with one JSON object " +
-  "and nothing else.";
+  "You are a copywriter at WINJO DIGITAL, a UK web design agency. Write short wording for a small business website in " +
+  "plain British English, from the facts you are given. Never invent anything: no prices, times, phone numbers, " +
+  "addresses, names, reviews, awards or years in business. Use a number or a year only if the customer's own words " +
+  "give it. No HTML and no links. Reply with one JSON object and nothing else.";
 
+/** The only fields the model writes. Everything else on the site is ours: the facts, and the fixed wording of the template. */
 const SHAPE =
-  '{"tagline": string, "hero": {"headline": string, "intro": string, "cta": string}, ' +
-  '"headings": {"services": string, "hours": string, "gallery": string, "area": string, "enquiry": string, "faq": string}, ' +
-  '"descriptions": {"<service name exactly as given>": string}, "area": string, ' +
-  '"enquiry": {"intro": string, "cta": string}, "faq": [{"question": string, "answer": string}], ' +
-  '"closing": {"headline": string, "cta": string}}';
+  '{"tagline": string, "hero": {"headline": string, "intro": string}, ' +
+  '"descriptions": {"<service name exactly as given>": string}, "faq": [{"question": string, "answer": string}]}';
 
 const LOOK_TONE: Record<Look, string> = {
   minimal: "calm and understated",
@@ -64,7 +61,8 @@ function sectorRules(input: WriteInput): string[] {
 
 export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string {
   const { facts, preset } = input;
-  const wanted = preset.sections.map((s) => `- ${s.kind}${s.required ? "" : " (only if the facts support it)"}: ${s.guidance}`);
+  // Only the sections the model writes wording for. The rest are fixed wording and facts, put in by our own code.
+  const wanted = preset.sections.filter((s) => s.kind === "hero" || s.kind === "faq").map((s) => `- ${s.kind}${s.required ? "" : " (only if the facts support it)"}: ${s.guidance}`);
   return [
     `Business: ${facts.businessName}`,
     `Sector: ${preset.label}. Voice: ${preset.voice} Tone: ${LOOK_TONE[input.look]}.`,
@@ -80,8 +78,11 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     ...(facts.details ?? []).map((d) => `Customer's answer to "${d.label}": ${d.value}`),
     facts.about || facts.details?.length ? "Draw on the customer's own words and answers for the hero intro, the tagline and the FAQ. Rephrase them if you like, but never state anything they don't say." : "",
     ...sectorRules(input),
-    "Sections, in order:",
+    "Write only these. Everything else on the site is written for you:",
+    "- tagline: optional, a short line under the business name. Leave it empty if nothing true and short fits.",
     ...wanted,
+    `Style example (the [brackets] stand for the customer's own facts: never copy the example and never leave a bracket in): headline "${preset.copy.example.headline}"; intro "${preset.copy.example.intro}"`,
+    "Headline: under twelve words. Intro: under forty words.",
     "FAQ: at most four questions a new customer would ask, answered only from the facts above. Leave the list empty if the facts don't support any.",
     `Descriptions: one short line per ${preset.itemsLabel === "Menu items" ? "menu item" : "service"}, using only its name. Skip any you can't describe without guessing.`,
     input.change ? `Apply this change: ${input.change.slice(0, 1000)}` : "",
@@ -146,6 +147,67 @@ export function parseCopy(text: string): ParsedCopy {
       faq,
       closing: { headline: clean(closing.headline, FIELD_LIMITS.headline), cta: clean(closing.cta, FIELD_LIMITS.cta) },
     },
+  };
+}
+
+const joinList = (items: string[]) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
+
+/** The last part of an address, which is the town in the way people write them: "12 High Street, Leeds". */
+const townOf = (address?: string) => address?.split(",").map((part) => part.trim()).filter(Boolean).pop();
+
+/** Cuts text to a limit at the end of a sentence if there is one, otherwise at a space. */
+function cut(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const head = t.slice(0, max);
+  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  if (stop > max / 3) return head.slice(0, stop + 1);
+  return head.slice(0, head.lastIndexOf(" ") > 0 ? head.lastIndexOf(" ") : max).trim();
+}
+
+/**
+ * The whole site's wording with no model at all: the template's fixed wording, a headline from the trade and the
+ * place, and the intro in the customer's own words. It makes no claim the customer didn't, so it passes the checks,
+ * and it is what a build falls back to if the model's reply can't be used.
+ */
+export function defaultCopy(input: WriteInput): SiteCopy {
+  const { facts, preset } = input;
+  const c = preset.copy;
+  const places = facts.areas?.length ? facts.areas : [];
+  const place = places.length ? joinList(places) : townOf(facts.address);
+  const headline = place ? `${c.trade} ${places.length ? (c.areasPreposition ?? "for") : "in"} ${place}` : facts.businessName;
+  return {
+    tagline: "",
+    hero: { headline: headline.length <= FIELD_LIMITS.headline ? headline : facts.businessName, intro: cut(facts.about ?? "", FIELD_LIMITS.intro), cta: c.heroCta },
+    headings: c.headings,
+    descriptions: {},
+    area: places.length ? `${c.areaLead} ${joinList(places)}.` : facts.address ? `We are at ${facts.address}.` : "",
+    enquiry: { intro: c.enquiryIntro, cta: c.enquiryCta },
+    faq: [],
+    closing: { headline: c.closingHeadline, cta: c.closingCta },
+  };
+}
+
+/** The model's wording where it gave some, our fixed wording everywhere else. */
+export function withDefaults(input: WriteInput, copy: SiteCopy): SiteCopy {
+  const d = defaultCopy(input);
+  const pick = (value: string, fallback: string) => value.trim() || fallback;
+  return {
+    tagline: copy.tagline,
+    hero: { headline: pick(copy.hero.headline, d.hero.headline), intro: pick(copy.hero.intro, d.hero.intro), cta: pick(copy.hero.cta, d.hero.cta) },
+    headings: {
+      services: pick(copy.headings.services, d.headings.services),
+      hours: pick(copy.headings.hours, d.headings.hours),
+      gallery: pick(copy.headings.gallery, d.headings.gallery),
+      area: pick(copy.headings.area, d.headings.area),
+      enquiry: pick(copy.headings.enquiry, d.headings.enquiry),
+      faq: pick(copy.headings.faq, d.headings.faq),
+    },
+    descriptions: copy.descriptions,
+    area: pick(copy.area, d.area),
+    enquiry: { intro: pick(copy.enquiry.intro, d.enquiry.intro), cta: pick(copy.enquiry.cta, d.enquiry.cta) },
+    faq: copy.faq,
+    closing: { headline: pick(copy.closing.headline, d.closing.headline), cta: pick(copy.closing.cta, d.closing.cta) },
   };
 }
 
@@ -241,11 +303,20 @@ export async function writeSite(ctx: WriteContext, input: WriteInput): Promise<W
       retryIssues = `- ${parsed.reason} Reply with only the JSON.`;
       continue;
     }
-    const content = assembleSite(input, parsed.copy);
+    const content = assembleSite(input, withDefaults(input, parsed.copy));
     const result = checkSite(content, input.facts, input.preset);
     if (result.ok) return { ok: true, content, costPence: spent - start };
     last = { content, issues: result.issues };
     retryIssues = describeIssues(result);
   }
-  return { ok: false, reason: last ? "The site did not pass the checks after two tries." : "The AI reply was not in the right shape after two tries.", ...last, costPence: spent - start };
+  if (last) return { ok: false, reason: "The site did not pass the checks after two tries.", ...last, costPence: spent - start };
+  // No usable reply at all: build the site from our own wording and the customer's words, so there is always a draft.
+  const fallback = assembleSite(input, defaultCopy(input));
+  return {
+    ok: false,
+    reason: "The AI wording could not be used, so this draft uses our standard wording. Read it before releasing it.",
+    content: fallback,
+    issues: checkSite(fallback, input.facts, input.preset).issues,
+    costPence: spent - start,
+  };
 }

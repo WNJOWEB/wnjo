@@ -44,6 +44,28 @@ export type BusinessGroup = keyof typeof BUSINESS_GROUPS;
  */
 export type RestrictedClaim = { pattern: RegExp; reason: string; unless?: (facts: CustomerFacts) => boolean };
 
+/**
+ * The wording we write ourselves, once, so a model never has to: headings, button labels, the request text and the
+ * closing line. None of it makes a claim about the business, so it is true of any customer. The model writes only
+ * the headline and intro, and optionally a tagline, service descriptions and FAQ answers.
+ */
+export type SectorCopy = {
+  /** The plain name of the trade, for a headline written without a model: "Barbers", "Plumbers". */
+  trade: string;
+  /** "for" in "Plumbers for Preston and Chorley"; holiday lets say "near". */
+  areasPreposition?: "for" | "near";
+  /** How the area text starts when a trade lists the places it covers. */
+  areaLead: string;
+  headings: { services: string; hours: string; gallery: string; area: string; enquiry: string; faq: string };
+  heroCta: string;
+  enquiryIntro: string;
+  enquiryCta: string;
+  closingHeadline: string;
+  closingCta: string;
+  /** A style example for the writer. [Brackets] stand for the customer's facts, so a small model sees the shape. */
+  example: { headline: string; intro: string };
+};
+
 export type SectorPreset = {
   id: string;
   label: string;
@@ -67,6 +89,8 @@ export type SectorPreset = {
   areaSource: "address" | "areas";
   /** The label on the free-text box of the request form. */
   enquiryPrompt: string;
+  /** The wording we write ourselves, so the model has less to get wrong. */
+  copy: SectorCopy;
   /** For a sector where some claims are regulated or risky: wording the site may not use. */
   restrictedClaims?: RestrictedClaim[];
 };
@@ -101,6 +125,17 @@ export const BARBER_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "When suits you?",
+  copy: {
+    trade: "Barbers",
+    areaLead: "We work in",
+    headings: { services: "Cuts and prices", hours: "Opening hours", gallery: "The shop", area: "Find us", enquiry: "Request a booking", faq: "Questions" },
+    heroCta: "Request a booking",
+    enquiryIntro: "Tell us when suits and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready for a fresh cut?",
+    closingCta: "Request a booking",
+    example: { headline: "Sharp cuts on [street]", intro: "Walk-ins and bookings at [name], [town]." },
+  },
   voice: "Confident, friendly and plain. Short sentences. No hype and no slang.",
   questions: [
     { id: "speciality", label: "What are you best known for?", hint: "For example: skin fades, traditional shaves, kids' cuts." },
@@ -137,6 +172,17 @@ export const CAFE_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "Date, time and how many of you?",
+  copy: {
+    trade: "Café",
+    areaLead: "We work in",
+    headings: { services: "Menu", hours: "Opening hours", gallery: "Inside", area: "Find us", enquiry: "Request a table", faq: "Questions" },
+    heroCta: "Request a table",
+    enquiryIntro: "Tell us the day and time and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Save a table?",
+    closingCta: "Request a table",
+    example: { headline: "Good coffee and fresh food in [town]", intro: "Breakfast, lunch and cake at [name]." },
+  },
   voice: "Warm, welcoming and simple. Short sentences. Talk about the food and the room, never about hype.",
   questions: [
     { id: "speciality", label: "What are you known for?", hint: "For example: breakfasts, homemade cakes, coffee roasted nearby." },
@@ -181,6 +227,17 @@ export const ELECTRICIAN_PRESET: SectorPreset = {
   hoursPrompt: "When are you available?",
   areaSource: "areas",
   enquiryPrompt: "What do you need doing?",
+  copy: {
+    trade: "Electricians",
+    areaLead: "We work in",
+    headings: { services: "What we do", hours: "Availability", gallery: "Our work", area: "Areas we cover", enquiry: "Request a quote", faq: "Questions" },
+    heroCta: "Request a quote",
+    enquiryIntro: "Tell us about the job and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Need an electrician?",
+    closingCta: "Request a quote",
+    example: { headline: "Electricians for [area], [area] and [area]", intro: "[jobs] from [name]." },
+  },
   voice: "Direct, calm and reassuring. Short sentences. Say what is done and where, with no jargon and no big promises.",
   questions: [
     { id: "jobs", label: "What jobs do you do most?", hint: "For example: rewires, fuse boards, lighting, EV chargers." },
@@ -232,6 +289,17 @@ export const PHYSIO_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "What would you like help with?",
+  copy: {
+    trade: "Physiotherapy",
+    areaLead: "We work in",
+    headings: { services: "Treatments", hours: "Opening hours", gallery: "The clinic", area: "Find us", enquiry: "Request an appointment", faq: "Questions" },
+    heroCta: "Request an appointment",
+    enquiryIntro: "Tell us what you need help with and when suits, and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready to book an appointment?",
+    closingCta: "Request an appointment",
+    example: { headline: "Physiotherapy in [town]", intro: "Assessment and treatment at [name]." },
+  },
   voice: "Calm, clear and reassuring. Short sentences. Say what a treatment involves, and never promise a result or a cure.",
   questions: [
     { id: "helpWith", label: "What do you help with most?", hint: "Describe what you help with, for example back pain or sports injuries. Not what you cure." },
@@ -276,6 +344,17 @@ export const MASSAGE_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "What would you like to book?",
+  copy: {
+    trade: "Massage",
+    areaLead: "We work in",
+    headings: { services: "Treatments", hours: "Opening hours", gallery: "The room", area: "Find us", enquiry: "Request a treatment", faq: "Questions" },
+    heroCta: "Request a treatment",
+    enquiryIntro: "Tell us which treatment and when suits, and we will reply to confirm.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready to book your treatment?",
+    closingCta: "Request a treatment",
+    example: { headline: "Massage in [town]", intro: "Treatments at [name], [town]." },
+  },
   voice: "Calm, warm and unhurried. Short sentences. Describe the treatment and the room, and never promise a result.",
   questions: [
     { id: "visit", label: "What is a visit like?", hint: "The room, how long it lasts, what to wear." },
@@ -320,6 +399,17 @@ export const BEAUTY_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "What would you like to book?",
+  copy: {
+    trade: "Hair and beauty",
+    areaLead: "We work in",
+    headings: { services: "Treatments", hours: "Opening hours", gallery: "Our work", area: "Find us", enquiry: "Request a booking", faq: "Questions" },
+    heroCta: "Request a booking",
+    enquiryIntro: "Tell us which treatment and when suits, and we will reply to confirm.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready to book?",
+    closingCta: "Request a booking",
+    example: { headline: "Hair and beauty in [town]", intro: "Treatments at [name], [town]." },
+  },
   voice: "Friendly, polished and reassuring. Short sentences. Describe the treatment and the experience, and never promise a result.",
   questions: [
     { id: "speciality", label: "What are you best known for?", hint: "For example: colour, bridal hair, nails, lashes." },
@@ -364,6 +454,17 @@ export const FITNESS_PRESET: SectorPreset = {
   hoursPrompt: "Opening hours",
   areaSource: "address",
   enquiryPrompt: "Which class or session interests you?",
+  copy: {
+    trade: "Fitness classes",
+    areaLead: "We work in",
+    headings: { services: "Classes and sessions", hours: "Opening hours", gallery: "The studio", area: "Find us", enquiry: "Ask about a class", faq: "Questions" },
+    heroCta: "Ask about a class",
+    enquiryIntro: "Tell us which class or session interests you, and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready to try a class?",
+    closingCta: "Ask about a class",
+    example: { headline: "Classes and sessions in [town]", intro: "Group and one-to-one sessions at [name]." },
+  },
   voice: "Energetic but plain. Short sentences. Say what a session involves and who it suits. No hype and no promised results.",
   questions: [
     { id: "audience", label: "Who is it for?", hint: "For example: beginners, women only, over-50s, runners." },
@@ -408,6 +509,18 @@ export const HOLIDAY_LET_PRESET: SectorPreset = {
   hoursPrompt: "Check-in and check-out",
   areaSource: "areas",
   enquiryPrompt: "When would you like to stay?",
+  copy: {
+    trade: "Holiday stays",
+    areasPreposition: "near",
+    areaLead: "Close to",
+    headings: { services: "Stays", hours: "Check-in and check-out", gallery: "The place", area: "Nearby", enquiry: "Ask about dates", faq: "Questions" },
+    heroCta: "Ask about dates",
+    enquiryIntro: "Tell us the dates and how many are coming, and we will reply to confirm.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready to book a stay?",
+    closingCta: "Ask about dates",
+    example: { headline: "Stay at [name]", intro: "A place to stay at [name], near [place]." },
+  },
   voice: "Warm and practical. Short sentences. Describe the place, the rooms and what is nearby. Never invent a rating or an award.",
   questions: [
     { id: "setting", label: "What is the place like?", hint: "The setting, the views, what you can walk to." },
@@ -446,6 +559,17 @@ export const PLUMBING_PRESET: SectorPreset = {
   hoursPrompt: "When are you available?",
   areaSource: "areas",
   enquiryPrompt: "What needs fixing?",
+  copy: {
+    trade: "Plumbers",
+    areaLead: "We work in",
+    headings: { services: "What we do", hours: "Availability", gallery: "Our work", area: "Areas we cover", enquiry: "Request a quote", faq: "Questions" },
+    heroCta: "Request a quote",
+    enquiryIntro: "Tell us what needs fixing and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Need a plumber?",
+    closingCta: "Request a quote",
+    example: { headline: "Plumbers for [area], [area] and [area]", intro: "[jobs] from [name]." },
+  },
   voice: "Direct, calm and reassuring. Short sentences. Say what is done and where, with no jargon and no big promises.",
   questions: [
     { id: "jobs", label: "What jobs do you do most?", hint: "For example: boiler servicing, leaks, bathrooms, central heating." },
@@ -496,6 +620,17 @@ export const BUILDING_PRESET: SectorPreset = {
   hoursPrompt: "When are you available?",
   areaSource: "areas",
   enquiryPrompt: "Tell us about the job",
+  copy: {
+    trade: "Builders",
+    areaLead: "We work in",
+    headings: { services: "What we do", hours: "Availability", gallery: "Our work", area: "Areas we cover", enquiry: "Request a quote", faq: "Questions" },
+    heroCta: "Request a quote",
+    enquiryIntro: "Tell us about the job and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Planning some work?",
+    closingCta: "Request a quote",
+    example: { headline: "Builders for [area], [area] and [area]", intro: "[jobs] from [name]." },
+  },
   voice: "Practical, steady and plain. Short sentences. Say what is built and where, with no jargon and no big promises.",
   questions: [
     { id: "jobs", label: "What kinds of job do you take on?", hint: "For example: small repairs, extensions, full renovations." },
@@ -545,6 +680,17 @@ export const CLEANING_PRESET: SectorPreset = {
   hoursPrompt: "When are you available?",
   areaSource: "areas",
   enquiryPrompt: "What needs cleaning?",
+  copy: {
+    trade: "Cleaners",
+    areaLead: "We work in",
+    headings: { services: "What we clean", hours: "Availability", gallery: "Our work", area: "Areas we cover", enquiry: "Request a quote", faq: "Questions" },
+    heroCta: "Request a quote",
+    enquiryIntro: "Tell us what needs cleaning and we will reply.",
+    enquiryCta: "Send request",
+    closingHeadline: "Ready for a clean?",
+    closingCta: "Request a quote",
+    example: { headline: "Cleaners for [area], [area] and [area]", intro: "[cleans] from [name]." },
+  },
   voice: "Friendly, reliable and plain. Short sentences. Say what is cleaned and where, with no hype and no promised results.",
   questions: [
     { id: "workFor", label: "Who do you clean for?", hint: "For example: homes, offices, rental properties." },

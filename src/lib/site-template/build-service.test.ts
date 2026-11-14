@@ -80,7 +80,6 @@ describe("the site build step", () => {
       enquiry = quoted("4-5");
       const { p, prompts } = capturing();
       await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
-      expect(prompts[0]).not.toContain("- facts");
       expect(prompts[0]).not.toContain("- faq");
     });
 
@@ -88,14 +87,12 @@ describe("the site build step", () => {
       enquiry = quoted("6-10");
       const { p, prompts } = capturing();
       await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
-      expect(prompts[0]).toContain("- facts");
       expect(prompts[0]).toContain("- faq");
     });
 
     it("keeps every section when there is no quote, so nothing is taken away", async () => {
       const { p, prompts } = capturing();
       await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
-      expect(prompts[0]).toContain("- facts");
       expect(prompts[0]).toContain("- faq");
     });
   });

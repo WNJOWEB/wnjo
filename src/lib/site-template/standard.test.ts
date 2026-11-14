@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { AiProvider } from "@/lib/ai/provider";
 import { ANSWER_LIMITS, cleanSiteAnswers, parseAnswers, parseServicesText } from "./answers";
 import { checkSite } from "./checks";
 import { ABOUT_QUESTION, SECTOR_PRESETS, type SectorPreset } from "./presets";
 import { SAMPLE_ANSWERS, SAMPLES } from "./sample";
-import { buildCopyPrompt } from "./write";
+import { assembleSite, buildCopyPrompt, defaultCopy, writeSite } from "./write";
 
 /**
  * The standard for a template: the form we give the customer collects enough to write a good site with it. Each
@@ -141,5 +142,59 @@ describe("the customer's own words", () => {
 
   it("asks everyone the same first question", () => {
     expect(ABOUT_QUESTION.label.endsWith("?")).toBe(true);
+  });
+});
+
+
+/**
+ * A small model has little to get wrong: the template writes the fixed wording and the customer's facts, so the model
+ * is only asked for a headline and an intro, plus optional descriptions and FAQ answers.
+ */
+const replying = (text: string): AiProvider => ({ name: "fake", model: "fake", complete: async () => ({ kind: "final", text, usage: { inputTokens: 0, outputTokens: 0, costPence: 1 } }) });
+
+describe.each(presets.map((p) => [p.label, p] as [string, SectorPreset]))("%s: a small model can finish the site", (_label, preset) => {
+  const parsed = parseAnswers(SAMPLE_ANSWERS[preset.id], preset, colour);
+  if (!parsed.ok) throw new Error("answers not accepted");
+  const input = { preset, facts: parsed.facts, look: parsed.look, colour: parsed.colour };
+  const ctx = (provider: AiProvider) => ({ provider, spentPence: 0, maxPence: 300 });
+
+  it("needs no model for the wording around the facts: a site with none of it written by the model passes every check", () => {
+    const site = assembleSite(input, defaultCopy(input));
+    expect(checkSite(site, parsed.facts, preset).issues).toEqual([]);
+    const hero = site.sections.find((s) => s.kind === "hero");
+    expect(hero?.kind === "hero" && hero.headline.length).toBeGreaterThan(0);
+  });
+
+  it("completes the whole site from a reply with only a headline and an intro", async () => {
+    const sample = SAMPLES[preset.id].content.sections.find((s) => s.kind === "hero");
+    if (sample?.kind !== "hero") throw new Error("no hero");
+    const r = await writeSite(ctx(replying(JSON.stringify({ hero: { headline: sample.headline, intro: sample.intro } }))), input);
+    expect(r.ok, r.ok ? "" : r.reason).toBe(true);
+    if (r.ok) expect(r.content.sections.map((s) => s.kind)).toEqual(expect.arrayContaining(preset.sections.filter((s) => s.required && s.kind !== "gallery").map((s) => s.kind)));
+  });
+
+  it("still gives the owner a complete, passing draft, marked for a person to read, when the model's reply can't be used", async () => {
+    const r = await writeSite(ctx(replying("sorry, I cannot do that")), input);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toContain("standard wording");
+    expect(r.content).toBeDefined();
+    expect(r.issues).toEqual([]);
+    expect(r.content!.sections.map((s) => s.kind)).toEqual(expect.arrayContaining(preset.sections.filter((s) => s.required && s.kind !== "gallery").map((s) => s.kind)));
+  });
+
+  it("is asked for the short reply only, with a style example for its own sector", async () => {
+    const prompts: string[] = [];
+    const p: AiProvider = { name: "fake", model: "fake", complete: async ({ messages }) => (prompts.push(messages[0].content), { kind: "final", text: "{}", usage: { inputTokens: 0, outputTokens: 0, costPence: 1 } }) };
+    await writeSite(ctx(p), input);
+    expect(prompts[0]).toContain(preset.copy.example.headline);
+    expect(prompts[0]).not.toContain('"headings"');
+    expect(prompts[0].length).toBeLessThan(3200);
+  });
+
+  it("writes nothing for the customer that claims anything: the fixed wording passes the sector's own claim rules", () => {
+    const d = defaultCopy(input);
+    const fixed = [d.hero.cta, d.enquiry.intro, d.enquiry.cta, d.closing.headline, d.closing.cta, ...Object.values(d.headings)];
+    for (const claim of preset.restrictedClaims ?? []) for (const text of fixed) expect(text, claim.reason).not.toMatch(claim.pattern);
   });
 });
