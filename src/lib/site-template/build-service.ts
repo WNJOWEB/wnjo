@@ -4,11 +4,25 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiProvider } from "@/lib/ai/provider";
-import { AI_STAGES, loadBrief, logEvent, maxPenceFromEnv, moveStage, type Actor, type ServiceResult } from "@/lib/ai/website-ai-service";
+import { AI_STAGES, loadBrief, logEvent, maxPenceFromEnv, moveStage, type Actor, type BriefRow, type ServiceResult } from "@/lib/ai/website-ai-service";
 import type { Stage } from "@/lib/build-journey";
+import { parseWebsiteAnswers, websiteQuote } from "@/lib/website-quote";
 import type { RawAnswers } from "./answers";
 import { buildSite } from "./build";
 import { SupabaseSiteBuildStore } from "./build-store";
+import { planForPages, type PlanLevel } from "./plans";
+
+/**
+ * The plan the customer's quote covered, or undefined when it isn't known. A site whose plan isn't known keeps every
+ * section its sector has, so a missing quote never takes anything away.
+ */
+async function planFor(db: SupabaseClient, brief: Pick<BriefRow, "reference" | "tenant_id">): Promise<PlanLevel | undefined> {
+  const { data } = await db.from("enquiries").select("answers").eq("reference", brief.reference).eq("tenant_id", brief.tenant_id).maybeSingle();
+  const stored = (data as { answers: { type?: string; answers?: unknown } | null } | null)?.answers;
+  const answers = stored?.type === "website" ? parseWebsiteAnswers(stored.answers) : null;
+  const pages = answers ? websiteQuote(answers).pagesRequested : null;
+  return pages ? planForPages(pages) : undefined;
+}
 
 export async function runSiteBuildStep(
   db: SupabaseClient,
@@ -21,7 +35,8 @@ export async function runSiteBuildStep(
   if (!brief) return { ok: false, status: 404, error: "not_found" };
   if (!AI_STAGES.includes(brief.stage)) return { ok: false, status: 409, error: "The site build starts once the customer has paid." };
   const store = new SupabaseSiteBuildStore(db, staff.tenantId, staff.userId);
-  const result = await buildSite({ provider, store, briefId, maxPence: maxPenceFromEnv() }, { ...input, change: input.change?.trim() || undefined, files: brief.brief.files });
+  const plan = await planFor(db, brief);
+  const result = await buildSite({ provider, store, briefId, maxPence: maxPenceFromEnv() }, { ...input, change: input.change?.trim() || undefined, files: brief.brief.files, plan });
   if (!result.ok) {
     await logEvent(db, staff, briefId, "ai", { step: "site", ok: false, reason: result.reason, costPence: result.costPence });
     return { ok: false, status: result.errors ? 422 : 502, error: result.reason };

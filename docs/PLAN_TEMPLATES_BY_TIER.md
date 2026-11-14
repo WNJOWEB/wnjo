@@ -1,7 +1,13 @@
 # Plan: templates by website plan
 
-Status: AGREED (14 November 2026), not built. The owner agreed the recommendation below. Commit stays local until the
-owner says "push" or "merge to main".
+Status: AGREED (14 November 2026). Step 1 is built; steps 2 to 6 are not. The owner agreed the recommendation below.
+Commits stay local until the owner says "push" or "merge to main".
+
+Step 1 (built): `src/lib/site-template/plans.ts` holds the section levels. `buildSite` takes an optional plan and
+filters the sector's sections by it. `runSiteBuildStep` reads the plan from the pages the customer's quote covered
+(up to 5 is Essential, up to 10 Professional, more is Premium). With no quote, or a "more than 20 pages" quote, every
+section is kept, so nothing is taken away from a site whose plan isn't known. Only Essential differs today: it leaves out
+the facts strip and the FAQ. The customer's own ticked facts are not shown on an Essential site.
 
 ## The decision
 

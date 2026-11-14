@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { AiProvider } from "@/lib/ai/provider";
 import type { Staff } from "@/lib/staff-auth";
 import { EMPTY_BRIEF } from "@/lib/website-brief";
+import { DEFAULT_WEBSITE_ANSWERS } from "@/lib/website-quote";
 import type { RawAnswers } from "./answers";
 import { releaseSiteBuild, runSiteBuildStep, withdrawSiteBuild } from "./build-service";
 
@@ -9,6 +10,7 @@ type Write = { table: string; op: string; payload: unknown; eq: Record<string, u
 let writes: Write[] = [];
 let brief: Record<string, unknown>;
 let buildRow: Record<string, unknown> | null;
+let enquiry: Record<string, unknown> | null;
 
 function builder(table: string) {
   let op = "select";
@@ -19,7 +21,7 @@ function builder(table: string) {
   b.eq = (k: string, v: unknown) => ((eq[k] = v), b);
   b.insert = (p: unknown) => ((op = "insert"), (payload = p), b);
   b.update = (p: unknown) => ((op = "update"), (payload = p), b);
-  b.maybeSingle = async () => ({ data: table === "website_briefs" ? brief : table === "website_site_builds" ? buildRow : null, error: null });
+  b.maybeSingle = async () => ({ data: table === "website_briefs" ? brief : table === "website_site_builds" ? buildRow : table === "enquiries" ? enquiry : null, error: null });
   b.single = async () => {
     writes.push({ table, op, payload, eq });
     return { data: { id: `${table}-1` }, error: null };
@@ -51,6 +53,7 @@ const provider: AiProvider = { name: "fake", model: "m", complete: async () => (
 beforeEach(() => {
   writes = [];
   buildRow = null;
+  enquiry = null;
   brief = { id: "b1", tenant_id: "t1", reference: "WNJO-ABC123", email: "owner@shop.co.uk", name: "Sam", business_name: "Hartley & Sons", stage: "building", brief: EMPTY_BRIEF, figures: {} };
 });
 
@@ -63,6 +66,38 @@ describe("the site build step", () => {
     expect(saved.status).toBeUndefined();
     expect(writesTo("website_briefs")).toEqual([]);
     expect(writesTo("website_brief_events").map((w) => (w.payload as { kind: string }).kind)).toEqual(["ai"]);
+  });
+
+  describe("the plan from the customer's quote", () => {
+    const quoted = (pages: string) => ({ answers: { type: "website", answers: { ...DEFAULT_WEBSITE_ANSWERS, mode: "oneOff", pages } } });
+    const capturing = () => {
+      const prompts: string[] = [];
+      const p: AiProvider = { name: "fake", model: "m", complete: async ({ messages }) => (prompts.push(messages[0].content), { kind: "final", text: JSON.stringify(copy), usage: { inputTokens: 1, outputTokens: 1, costPence: 1 } }) };
+      return { p, prompts };
+    };
+
+    it("leaves the facts strip and the FAQ out of the brief for an Essential quote", async () => {
+      enquiry = quoted("4-5");
+      const { p, prompts } = capturing();
+      await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
+      expect(prompts[0]).not.toContain("- facts");
+      expect(prompts[0]).not.toContain("- faq");
+    });
+
+    it("keeps every section for a Professional quote", async () => {
+      enquiry = quoted("6-10");
+      const { p, prompts } = capturing();
+      await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
+      expect(prompts[0]).toContain("- facts");
+      expect(prompts[0]).toContain("- faq");
+    });
+
+    it("keeps every section when there is no quote, so nothing is taken away", async () => {
+      const { p, prompts } = capturing();
+      await runSiteBuildStep(db, staff, p, "b1", { sector: "barber", answers });
+      expect(prompts[0]).toContain("- facts");
+      expect(prompts[0]).toContain("- faq");
+    });
   });
 
   it("moves a paid build waiting at specification on to building, as the plan step does", async () => {

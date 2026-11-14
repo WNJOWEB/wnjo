@@ -53,6 +53,25 @@ describe("buildSite", () => {
     expect(store.saved[0].content.business.name).toBe("Hartley & Sons");
   });
 
+  it("builds a smaller site at Essential: the writer is not asked for the facts strip or the FAQ", async () => {
+    const p = provider([final(copy)]);
+    const store = memoryStore();
+    const r = await run(p, store, { sector: "barber", answers, plan: "essential" });
+    expect(r).toMatchObject({ ok: true, checksOk: true });
+    expect(p.prompts[0]).not.toContain("- facts");
+    expect(p.prompts[0]).not.toContain("- faq");
+    const kinds = store.saved[0].content.sections.map((s) => s.kind);
+    expect(kinds).not.toContain("facts");
+    expect(kinds).not.toContain("faq");
+  });
+
+  it("keeps every section when no plan is given", async () => {
+    const p = provider([final(copy)]);
+    await run(p, memoryStore(), { sector: "barber", answers });
+    expect(p.prompts[0]).toContain("- facts");
+    expect(p.prompts[0]).toContain("- faq");
+  });
+
   it("uses uploaded photographs for the hero and gallery, and leaves logos out", async () => {
     const store = memoryStore();
     const files = [

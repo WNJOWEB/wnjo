@@ -7,6 +7,7 @@
 import type { AiProvider } from "@/lib/ai/provider";
 import { parseAnswers, type RawAnswers } from "./answers";
 import type { CheckIssue } from "./checks";
+import { applyPlan, type PlanLevel } from "./plans";
 import { presetFor } from "./presets";
 import { pickPhotos } from "./photos";
 import type { CustomerFacts, SiteContent } from "./schema";
@@ -41,6 +42,8 @@ export type BuildInput = {
   /** The customer's uploads. Images become the hero and gallery; logos and documents are left out. */
   files?: BriefFile[];
   defaultColour?: string;
+  /** The customer's plan, which decides the sections. Left out when it isn't known: the sector's full set is used. */
+  plan?: PlanLevel;
 };
 
 export type BuildResult =
@@ -59,8 +62,9 @@ export async function buildSite(ctx: { provider: AiProvider; store: SiteBuildSto
     answers = answers ?? last.answers;
   }
 
-  const preset = presetFor(sector);
-  if (!preset) return { ok: false, reason: `There is no template for "${sector}" yet.`, costPence: 0 };
+  const base = presetFor(sector);
+  if (!base) return { ok: false, reason: `There is no template for "${sector}" yet.`, costPence: 0 };
+  const preset = applyPlan(base, input.plan);
 
   const parsed = parseAnswers(answers, preset, { colour: input.defaultColour ?? FALLBACK_COLOUR });
   if (!parsed.ok) return { ok: false, reason: Object.values(parsed.errors)[0], errors: parsed.errors, costPence: 0 };
