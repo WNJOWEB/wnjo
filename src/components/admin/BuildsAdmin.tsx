@@ -252,6 +252,8 @@ function BriefDetail({ client, row, call, onChanged }: { client: SupabaseClient;
                   ["Email address (for replies)", a.email ?? ""],
                   ["Address", a.address ?? ""],
                   ["Areas", a.areas ?? ""],
+                  ["What makes the business different", a.about ?? ""],
+                  ...(SECTOR_PRESETS[b.site!.sector]?.questions ?? []).map((q): [string, string] => [q.label, a.details?.[q.id] ?? ""]),
                   ["Facts ticked (what is true of the business)", (a.highlights ?? []).map((id) => SECTOR_PRESETS[b.site!.sector]?.highlights.find((h) => h.id === id)?.value ?? id).join(", ")],
                   ["Look", lookLabel],
                   ["Colour", a.colour ?? ""],

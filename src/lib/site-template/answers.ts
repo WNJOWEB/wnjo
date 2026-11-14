@@ -2,7 +2,7 @@
  * The customer's answers to the sector questions, checked and turned into `CustomerFacts` for the build. Pure (no
  * database, no browser), so the form and the server apply the same rules. Typed text is kept as plain text.
  */
-import type { SectorPreset } from "./presets";
+import { ABOUT_QUESTION, type SectorPreset } from "./presets";
 import type { CustomerFacts, HoursItem, Look } from "./schema";
 import { FIELD_LIMITS, LOOKS } from "./schema";
 
@@ -21,13 +21,17 @@ export type RawAnswers = {
   address?: string;
   /** Places a trade covers, separated by commas or new lines. */
   areas?: string;
+  /** In their own words: what makes the business different. */
+  about?: string;
+  /** Answers to the sector's own questions, by question id. */
+  details?: Record<string, string>;
   look?: string;
   colour?: string;
 };
 
 export type ParsedAnswers = { ok: true; facts: CustomerFacts; look: Look; colour: string } | { ok: false; errors: Record<string, string> };
 
-export const ANSWER_LIMITS = { businessName: 60, address: 160, email: 120, phone: 20, servicesText: 2000, areasText: 300 } as const;
+export const ANSWER_LIMITS = { businessName: 60, address: 160, email: 120, phone: 20, servicesText: 2000, areasText: 300, aboutText: 400, detailText: 200, details: 8 } as const;
 
 const text = (v: unknown): string => (typeof v === "string" ? v.replace(/<[^>]*>/g, "").replace(/[ \t]+/g, " ").trim() : "");
 
@@ -154,6 +158,19 @@ export function parseAnswers(raw: RawAnswers, preset: SectorPreset, defaults: { 
   const ticked = new Set(Array.isArray(raw.highlights) ? raw.highlights : []);
   const highlights = preset.highlights.filter((h) => ticked.has(h.id)).map((h) => ({ value: h.value, label: h.label }));
 
+  // In their own words, and the sector's own questions. The writer may use what they say and nothing more.
+  const about = text(raw.about);
+  if (!about) errors.about = `Answer "${ABOUT_QUESTION.label}" in a sentence or two.`;
+  else if (about.length > ANSWER_LIMITS.aboutText) errors.about = `Keep it under ${ANSWER_LIMITS.aboutText} characters.`;
+  const rawDetails = raw.details && typeof raw.details === "object" ? raw.details : {};
+  const details: { label: string; value: string }[] = [];
+  for (const q of preset.questions) {
+    const value = text(rawDetails[q.id]);
+    if (value.length > ANSWER_LIMITS.detailText) errors[`detail-${q.id}`] = `Keep it under ${ANSWER_LIMITS.detailText} characters.`;
+    else if (!value && q.required) errors[`detail-${q.id}`] = "Answer this question.";
+    else if (value) details.push({ label: q.label, value });
+  }
+
   const look = (LOOKS as readonly string[]).includes(raw.look ?? "") ? (raw.look as Look) : preset.defaultLook;
   const colourInput = text(raw.colour);
   if (colourInput && !COLOUR.test(colourInput)) errors.colour = "Pick a colour from the swatches.";
@@ -170,6 +187,8 @@ export function parseAnswers(raw: RawAnswers, preset: SectorPreset, defaults: { 
       ...(ordered.length ? { hours: groupHours(ordered) } : {}),
       ...(areas.length ? { areas } : {}),
       ...(highlights.length ? { highlights } : {}),
+      about,
+      ...(details.length ? { details } : {}),
       ...(phone ? { phone } : {}),
       ...(email ? { email } : {}),
       ...(address ? { address } : {}),
@@ -201,6 +220,12 @@ export function cleanSiteAnswers(input: unknown, knownSectors: string[]): SiteAn
       hours.push(r.closed === true ? { day, closed: true } : { day, open: str(r.open, 5), close: str(r.close, 5) });
     }
   }
+  const details: Record<string, string> = {};
+  if (a.details && typeof a.details === "object") {
+    for (const [key, value] of Object.entries(a.details as Record<string, unknown>).slice(0, ANSWER_LIMITS.details)) {
+      if (/^[a-zA-Z0-9-]{1,30}$/.test(key) && typeof value === "string") details[key] = str(value, ANSWER_LIMITS.detailText);
+    }
+  }
   return {
     sector,
     answers: {
@@ -212,6 +237,8 @@ export function cleanSiteAnswers(input: unknown, knownSectors: string[]): SiteAn
       email: str(a.email, ANSWER_LIMITS.email),
       address: str(a.address, ANSWER_LIMITS.address),
       areas: str(a.areas, ANSWER_LIMITS.areasText),
+      about: str(a.about, ANSWER_LIMITS.aboutText),
+      details,
       look: str(a.look, 20),
       colour: str(a.colour, 7),
     },

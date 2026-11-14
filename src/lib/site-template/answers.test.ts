@@ -9,6 +9,7 @@ const week = (over: Partial<Record<(typeof DAYS)[number], Partial<DayAnswer>>> =
 const raw = (over: RawAnswers = {}): RawAnswers => ({
   businessName: "Hartley & Sons",
   servicesText: "Cut & style £22\nSkin fade - 20\nBeard trim",
+  about: "A family barber shop on the high street.",
   hours: week(),
   phone: "01632 960123",
   email: "Book@Hartley.example",

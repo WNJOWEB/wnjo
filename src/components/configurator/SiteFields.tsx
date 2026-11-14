@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { DAYS, type DayAnswer, type RawAnswers } from "@/lib/site-template/answers";
-import { BUSINESS_GROUPS, SECTOR_PRESETS, type BusinessGroup } from "@/lib/site-template/presets";
+import { ABOUT_QUESTION, BUSINESS_GROUPS, SECTOR_PRESETS, type BusinessGroup } from "@/lib/site-template/presets";
 import { LOOKS, type Look } from "@/lib/site-template/schema";
 import { CUSTOMERS, FIRST_ACTIONS, PROFILE_LIMITS, TONES, type BusinessProfile, type FirstAction, type WebsiteBrief } from "@/lib/website-brief";
 import type { BriefChange } from "./BriefSteps";
@@ -28,6 +28,10 @@ const SECTOR_HINT: Record<string, string> = {
   massage: "Treatments and prices, opening hours, and booking requests",
   fitness: "Classes and sessions, opening hours, and trial requests",
   "holiday-let": "Stays and prices, the places nearby, and date requests",
+  beauty: "Treatments and prices, opening hours, and booking requests",
+  plumbing: "Services, areas you cover, and quote requests",
+  building: "Services, areas you cover, and quote requests",
+  cleaning: "Services, areas you cover, and quote requests",
 };
 const GROUP_ORDER = Object.keys(BUSINESS_GROUPS) as BusinessGroup[];
 
@@ -128,14 +132,14 @@ export function SiteFields({ brief, onChange, errors, businessName }: { brief: W
       {site && preset && (
         <>
           <div className="field">
-            <label htmlFor={`${id}-services`}>{preset.itemsLabel === "Menu items" ? "Your menu and prices" : "Your services and prices"}</label>
+            <label htmlFor={`${id}-services`}>{preset.servicesPrompt}</label>
             <textarea
               id={`${id}-services`}
               className="textarea"
               rows={5}
               maxLength={2000}
               value={answers.servicesText ?? ""}
-              placeholder={preset.id === "cafe" ? "Flat white £3.20\nBacon roll £5.50\nCake of the day" : preset.id === "electrician" ? "Full rewire\nFuse board upgrade £450\nSmoke alarm testing" : "Cut & style £22\nSkin fade £20\nBeard trim"}
+              placeholder={preset.servicesExample}
               aria-invalid={errors.services ? true : undefined}
               onChange={(e) => set({ servicesText: e.target.value })}
             />
@@ -155,7 +159,7 @@ export function SiteFields({ brief, onChange, errors, businessName }: { brief: W
           {hasHours && (
           <fieldset className={styles.group}>
             <legend className={styles.legend}>
-              {preset.id === "electrician" ? "When are you available?" : "Opening hours"} {!hoursRequired && <span className="optional">(optional)</span>}
+              {preset.hoursPrompt} {!hoursRequired && <span className="optional">(optional)</span>}
             </legend>
             <div className="site-hours">
               {hours.map((d) => (
@@ -176,6 +180,44 @@ export function SiteFields({ brief, onChange, errors, businessName }: { brief: W
             {err("hours")}
           </fieldset>
           )}
+
+          <fieldset className={styles.group}>
+            <legend className={styles.legend}>About your business</legend>
+            <div className="field">
+              <label htmlFor={`${id}-about`}>{ABOUT_QUESTION.label}</label>
+              <textarea
+                id={`${id}-about`}
+                className="textarea"
+                rows={3}
+                maxLength={400}
+                value={answers.about ?? ""}
+                placeholder={ABOUT_QUESTION.placeholder}
+                aria-invalid={errors.about ? true : undefined}
+                onChange={(e) => set({ about: e.target.value })}
+              />
+              <p className="field-hint">{ABOUT_QUESTION.hint}</p>
+              {err("about")}
+            </div>
+            {preset.questions.map((q) => (
+              <div className="field" key={q.id}>
+                <label htmlFor={`${id}-q-${q.id}`}>
+                  {q.label} {!q.required && <span className="optional">(optional)</span>}
+                </label>
+                <textarea
+                  id={`${id}-q-${q.id}`}
+                  className="textarea"
+                  rows={2}
+                  maxLength={200}
+                  value={answers.details?.[q.id] ?? ""}
+                  placeholder={q.placeholder}
+                  aria-invalid={errors[`detail-${q.id}`] ? true : undefined}
+                  onChange={(e) => set({ details: { ...(answers.details ?? {}), [q.id]: e.target.value } })}
+                />
+                <p className="field-hint">{q.hint}</p>
+                {err(`detail-${q.id}`)}
+              </div>
+            ))}
+          </fieldset>
 
           <fieldset className={styles.group}>
             <legend className={styles.legend}>How can people reach you?</legend>

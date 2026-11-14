@@ -7,7 +7,7 @@ const week = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d
 const barber: WebsiteBrief = {
   ...EMPTY_BRIEF,
   goals: ["bookings"],
-  site: { sector: "barber", answers: { servicesText: "Cut £20", hours: week, email: "book@hartley.example", phone: "01632 960123" } },
+  site: { sector: "barber", answers: { servicesText: "Cut £20", about: "A family barber shop.", hours: week, email: "book@hartley.example", phone: "01632 960123" } },
 };
 const other: WebsiteBrief = {
   ...EMPTY_BRIEF,

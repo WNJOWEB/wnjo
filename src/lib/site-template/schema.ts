@@ -79,4 +79,8 @@ export type CustomerFacts = {
   phone?: string;
   email?: string;
   address?: string;
+  /** The customer's own words on what makes the business different. The writer may rephrase it, never add to it. */
+  about?: string;
+  /** The customer's answers to the sector's own questions, each with the question it answers. */
+  details?: { label: string; value: string }[];
 };

@@ -7,6 +7,7 @@ const week = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((d
 const answers: RawAnswers = {
   businessName: "Hartley & Sons",
   servicesText: "Cut & style £22\nSkin fade £20\nBeard trim",
+  about: "A family barber shop on the high street.",
   hours: week,
   email: "book@hartley.example",
   phone: "01632 960123",

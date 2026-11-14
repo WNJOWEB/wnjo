@@ -161,7 +161,8 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
   for (const claim of preset.restrictedClaims ?? []) {
     if (claim.unless?.(facts)) continue;
     for (const f of fields) {
-      if (f.where.includes(".facts.")) continue;
+      // The customer's own service names and prices, and the facts they ticked, are theirs to say.
+      if (f.where.includes(".facts.") || /\.items\[\d+\]\.(name|price)$/.test(f.where)) continue;
       const hit = f.text.match(claim.pattern);
       if (hit) flag("restricted-claim", `${claim.reason} ("${hit[0]}")`, f.where);
     }
@@ -192,16 +193,20 @@ export function checkSite(content: SiteContent, facts: CustomerFacts, preset: Se
   }
 
   // Nothing invented: every price, email, phone number and address in the text must come from the customer.
-  const knownPrices = new Set(facts.services.map((s) => s.price).filter(Boolean).map((p) => priceKey(p!)));
+  // Whatever the customer typed in their own words counts as theirs too: a price, an email or a number they wrote.
+  const theirWords = [facts.about ?? "", ...(facts.details ?? []).map((d) => d.value)].join(" ");
+  const knownPrices = new Set([...facts.services.map((s) => s.price).filter(Boolean), ...(theirWords.match(PRICE) ?? [])].map((p) => priceKey(p!)));
+  const knownEmails = new Set([facts.email, ...(theirWords.match(EMAIL) ?? [])].filter(Boolean).map((e) => norm(e!)));
+  const knownPhones = new Set([facts.phone, ...(theirWords.match(PHONE) ?? [])].filter(Boolean).map((p) => digits(p!)));
   for (const f of fields) {
     for (const m of f.text.match(PRICE) ?? []) {
       if (!knownPrices.has(priceKey(m))) flag("price-invented", `The price ${m} was not given by the customer.`, f.where);
     }
     for (const m of f.text.match(EMAIL) ?? []) {
-      if (!facts.email || norm(m) !== norm(facts.email)) flag("email-invented", `The email ${m} was not given by the customer.`, f.where);
+      if (!knownEmails.has(norm(m))) flag("email-invented", `The email ${m} was not given by the customer.`, f.where);
     }
     for (const m of f.text.match(PHONE) ?? []) {
-      if (!facts.phone || digits(m) !== digits(facts.phone)) flag("phone-invented", `The phone number ${m} was not given by the customer.`, f.where);
+      if (!knownPhones.has(digits(m))) flag("phone-invented", `The phone number ${m} was not given by the customer.`, f.where);
     }
   }
   const b = content.business;

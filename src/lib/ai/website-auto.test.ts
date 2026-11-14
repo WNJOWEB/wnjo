@@ -14,7 +14,7 @@ import { runAutoDrafts } from "./website-auto";
 
 const withGoals = { goals: ["bookings"] };
 const week = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((day) => (day === "Sun" ? { day, closed: true } : { day, open: "09:00", close: "18:00" }));
-const siteAnswers = { sector: "barber", answers: { businessName: "Hartley & Sons", servicesText: "Cut £20", hours: week, email: "book@hartley.example", phone: "01632 960123" } };
+const siteAnswers = { sector: "barber", answers: { businessName: "Hartley & Sons", servicesText: "Cut £20", about: "A family barber shop.", hours: week, email: "book@hartley.example", phone: "01632 960123" } };
 const fakeDb = (briefs: { id: string; tenant_id: string; brief?: { goals: string[]; site?: unknown } }[], withPlan: string[] = [], withSite: string[] = []) =>
   ({
     from: (table: string) => {

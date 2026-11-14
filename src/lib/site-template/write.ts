@@ -76,6 +76,9 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
       : "Opening hours given: no",
 
     facts.highlights?.length ? `Facts the customer gave: ${facts.highlights.map((h) => `${h.value} ${h.label}`).join("; ")}` : "",
+    facts.about ? `In the customer's own words, what makes the business different: "${facts.about}"` : "",
+    ...(facts.details ?? []).map((d) => `Customer's answer to "${d.label}": ${d.value}`),
+    facts.about || facts.details?.length ? "Draw on the customer's own words and answers for the hero intro, the tagline and the FAQ. Rephrase them if you like, but never state anything they don't say." : "",
     ...sectorRules(input),
     "Sections, in order:",
     ...wanted,

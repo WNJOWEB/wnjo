@@ -37,7 +37,7 @@ const staff: Staff = { userId: "u1", email: "staff@winjo.test", tenantId: "t1", 
 const writesTo = (table: string) => writes.filter((w) => w.table === table);
 
 const week = (["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const).map((day) => (day === "Sun" ? { day, closed: true } : { day, open: "09:00", close: "18:00" }));
-const answers: RawAnswers = { businessName: "Hartley & Sons", servicesText: "Cut & style £22\nBeard trim", hours: week, email: "book@hartley.example", phone: "01632 960123", address: "12 High Street, Leeds" };
+const answers: RawAnswers = { businessName: "Hartley & Sons", servicesText: "Cut & style £22\nBeard trim", about: "A family barber shop.", hours: week, email: "book@hartley.example", phone: "01632 960123", address: "12 High Street, Leeds" };
 const copy = {
   tagline: "Barbers in Leeds",
   hero: { headline: "Sharp cuts on High Street", intro: "Walk-ins and bookings.", cta: "Request a booking" },
