@@ -36,6 +36,9 @@ they can be done. Nothing here is pushed or deployed until the owner says so.
 - [x] **Confirmation page no longer imports a server-only module** (it pulled Node's crypto into the browser bundle and broke the dev build).
 
 ## Done since 12 November (on main)
+- [x] **Tier picker on Own your website (14 November):** the tiers on `/website-projects` now choose the same way as the pricing page: a card each, with a button that turns the card dark. Each tier keeps its example site. The bottom bar's "Choose a package" button and the "Change" link on the details form reach the section again (`#packages`, which was a broken link).
+- [x] **Plan-aware template build (14 November):** a template site takes its section set from the customer's plan. Essential leaves out the facts strip and the FAQ; Professional and Premium keep every section. With no plan known, every section is kept. Tests cover each case. The Professional and Premium extras (timetable, local pages, blog) are not built yet.
+- [x] **Plan for templates by website plan (14 November):** the agreed plan is in `docs/PLAN_TEMPLATES_BY_TIER.md`. The plan sets the structure and the sector sets the content. The EV Exec operator and driver apps are sold separately, never implied by Premium.
 - [x] **Physio template:** a fourth sector, with treatments, hours, address and appointment requests. It can't promise results or cures, and only mentions a registration if the customer ticks it. Sample build passes every check.
 - [x] **Own your website tiers:** Essential from £999, Professional from £1,999 and Premium from £2,999 (owner, 14 November). Each card lists what's included, and the page size carries into the proposal form.
 - [x] **Services page flow:** choose a tier, then hosting (with the managed-plan upsell beside it), then continue to the proposal.
