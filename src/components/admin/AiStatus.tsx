@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { nextBriefingAt, type Briefing } from "@/lib/briefing";
 import { SECTOR_PRESETS } from "@/lib/site-template/presets";
+import type { SiteContent } from "@/lib/site-template/schema";
+import { SiteRender } from "@/components/site-template/SiteRender";
 
 const TEMPLATE_LABELS: Record<string, string> = Object.fromEntries(Object.values(SECTOR_PRESETS).map((p) => [p.id, p.label]));
 const TEMPLATE_IDS = Object.keys(SECTOR_PRESETS);
@@ -23,9 +25,11 @@ type Approval = { id: string; task_id: string; tool: string; reason: string; arg
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const pounds = (pence: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
+type TestSite = { business: string; passed: boolean; content: SiteContent | null; issues: string[] };
+type TemplateTestRow = { template: string; passed: number; runs: number; pencePerSite: number; problems: string[]; sites: TestSite[] };
 type TemplateTestResult = {
   model: string;
-  rows: { template: string; passed: number; runs: number; pencePerSite: number; problems: string[] }[];
+  rows: TemplateTestRow[];
   passed: number;
   total: number;
   pencePerSite: number;
@@ -37,6 +41,8 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
   const [result, setResult] = useState<TemplateTestResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [openTemplate, setOpenTemplate] = useState<string | null>(null);
+  const [openSite, setOpenSite] = useState<string | null>(null);
 
   const run = async () => {
     setRunning(true);
@@ -98,6 +104,42 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
               <li key={r.template} className="admin-row-static">
                 {r.template}: {r.passed}/{r.runs} passed, {r.pencePerSite}p
                 {r.problems.length > 0 && <span className="acct-meta"> ({r.problems.join(", ")})</span>}
+                {r.sites.length > 0 && (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="arrow-link"
+                      aria-expanded={openTemplate === r.template}
+                      onClick={() => {
+                        setOpenTemplate(openTemplate === r.template ? null : r.template);
+                        setOpenSite(null);
+                      }}
+                    >
+                      {openTemplate === r.template ? "Hide sites" : "Show sites"}
+                    </button>
+                  </>
+                )}
+                {openTemplate === r.template && (
+                  <ul className="admin-list" role="list">
+                    {r.sites.map((site, i) => {
+                      const key = `${r.template}-${i}`;
+                      return (
+                        <li key={key} className="admin-row-static">
+                          <button type="button" className="arrow-link" onClick={() => setOpenSite(openSite === key ? null : key)}>
+                            {site.business} {site.passed ? "(passed)" : "(not passed)"}
+                          </button>
+                          {!site.passed && site.issues.length > 0 && <p className="acct-meta">{site.issues.join(", ")}</p>}
+                          {openSite === key && site.content && (
+                            <div className="template-preview" style={{ marginTop: "0.75rem", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
+                              <SiteRender content={site.content} />
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
