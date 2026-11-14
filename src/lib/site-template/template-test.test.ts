@@ -45,3 +45,21 @@ describe("the sites the test keeps, so they can be looked at", () => {
     expect(row.sites.every((s) => !s.passed && s.issues.length > 0)).toBe(true);
   });
 });
+
+describe("the lines the model wrote", () => {
+  it("are only what differs from our own wording, so our fixed wording is never blamed on the model", async () => {
+    const { modelLinesOf } = await import("./template-test");
+    const { SAMPLES } = await import("./sample");
+    const { SECTOR_PRESETS: presets } = await import("./presets");
+    const { assembleSite, defaultCopy } = await import("./write");
+    const preset = presets.barber;
+    const input = { preset, facts: SAMPLES.barber.facts, look: "classic" as const, colour: "#1f3a34" };
+    // Our own build, with nothing written by the model: no lines.
+    expect(modelLinesOf(assembleSite(input, defaultCopy(input)), input)).toEqual([]);
+    // The same build with the headline changed by the model: one line, the headline.
+    const content = assembleSite(input, defaultCopy(input));
+    const hero = content.sections.find((s) => s.kind === "hero");
+    if (hero?.kind === "hero") hero.headline = "Sharp cuts for Leeds";
+    expect(modelLinesOf(content, input).map((l) => l.label)).toEqual(["Headline"]);
+  });
+});

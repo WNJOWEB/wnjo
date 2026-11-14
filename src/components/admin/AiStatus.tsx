@@ -25,13 +25,15 @@ type Approval = { id: string; task_id: string; tool: string; reason: string; arg
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const pounds = (pence: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
-type TestSite = { business: string; passed: boolean; content: SiteContent | null; issues: string[] };
+type ModelLine = { label: string; text: string };
+type TestSite = { business: string; passed: boolean; content: SiteContent | null; facts: { services: { name: string; price?: string }[]; phone?: string; email?: string; address?: string; areas?: string[] }; modelLines: ModelLine[]; issues: string[] };
 type TemplateTestRow = { template: string; passed: number; runs: number; pencePerSite: number; problems: string[]; sites: TestSite[] };
 type TemplateTestResult = { model: string; rows: TemplateTestRow[] };
 
 /**
- * Tests one template at a time: pick it, run it, then open each business it wrote and see the full site, with its
- * pictures, as a customer would see it.
+ * Tests one template at a time: pick it, run it, then open each business it wrote. A site shows as a customer would
+ * see it, on a phone or on a desktop, with what the customer gave and the lines the model wrote beside it. Each site
+ * can be rated, and the rating is saved, so models can be compared later.
  */
 function TemplateTest({ client }: { client: SupabaseClient }) {
   const [template, setTemplate] = useState(TEMPLATE_IDS[0]);
@@ -40,14 +42,19 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
   const [model, setModel] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [openSite, setOpenSite] = useState<number | null>(null);
+  const [view, setView] = useState<"phone" | "desktop">("phone");
+  const [rated, setRated] = useState<Record<number, string>>({});
+  const [ratingNote, setRatingNote] = useState("");
+
+  const tokenOrNull = async () => (await client.auth.getSession()).data.session?.access_token ?? null;
 
   const run = async () => {
     setRunning(true);
     setNote(null);
     setResult(null);
     setOpenSite(null);
-    const { data } = await client.auth.getSession();
-    const token = data.session?.access_token;
+    setRated({});
+    const token = await tokenOrNull();
     if (!token) {
       setRunning(false);
       setNote("Sign in again, then run the test.");
@@ -66,6 +73,69 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
     } else {
       setNote(body?.error ?? "The test couldn't run. Please try again.");
     }
+  };
+
+  const rate = async (index: number, site: TestSite, rating: "good" | "needs_work") => {
+    const token = await tokenOrNull();
+    if (!token) return setNote("Sign in again to save your rating.");
+    const res = await fetch("/api/admin/ai/template-test", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: "rate", template, business: site.business, rating, note: rating === "needs_work" ? ratingNote : undefined }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setRated((r) => ({ ...r, [index]: rating === "good" ? "Rated good" : "Rated needs work" }));
+      setRatingNote("");
+    } else {
+      setNote("The rating couldn't be saved. Please try again.");
+    }
+  };
+
+  const siteView = (site: TestSite) => {
+    const f = site.facts;
+    return (
+      <>
+        <p className="acct-meta">Placeholder photos: they show the layout, not the business.</p>
+        <div className="admin-row-static">
+          <p className="acct-label">What the customer gave</p>
+          <ul className="admin-list" role="list">
+            {f.services.map((x) => (
+              <li key={x.name}>{x.price ? `${x.name}, ${x.price}` : x.name}</li>
+            ))}
+            {f.areas?.length ? <li>Areas: {f.areas.join(", ")}</li> : null}
+            {f.phone ? <li>Phone: {f.phone}</li> : null}
+            {f.email ? <li>Email: {f.email}</li> : null}
+            {f.address ? <li>Address: {f.address}</li> : null}
+          </ul>
+        </div>
+        {site.modelLines.length > 0 && (
+          <div className="admin-row-static">
+            <p className="acct-label">What the model wrote</p>
+            <ul className="admin-list" role="list">
+              {site.modelLines.map((line, n) => (
+                <li key={n}>
+                  <span className="acct-meta">{line.label}: </span>
+                  {line.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div style={{ margin: "0.75rem 0", display: "flex", gap: "0.5rem" }}>
+          <button type="button" className="btn btn--secondary" aria-pressed={view === "phone"} onClick={() => setView("phone")}>
+            Phone
+          </button>
+          <button type="button" className="btn btn--secondary" aria-pressed={view === "desktop"} onClick={() => setView("desktop")}>
+            Desktop
+          </button>
+        </div>
+        {site.content && (
+          <div style={{ maxWidth: view === "phone" ? 390 : "100%", margin: "0 auto", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
+            <SiteRender content={site.content} />
+          </div>
+        )}
+      </>
+    );
   };
 
   return (
@@ -95,10 +165,36 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
                 <button type="button" className="arrow-link" aria-expanded={openSite === i} onClick={() => setOpenSite(openSite === i ? null : i)}>
                   {site.business} {site.passed ? "(passed)" : "(not passed)"}
                 </button>
-                {!site.passed && site.issues.length > 0 && <p className="acct-meta">{site.issues.join(", ")}</p>}
-                {openSite === i && site.content && (
-                  <div style={{ marginTop: "0.75rem", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
-                    <SiteRender content={site.content} />
+                {openSite === i && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    {!site.passed && site.issues.length > 0 && (
+                      <p className="acct-meta">Why it didn&apos;t pass: {site.issues.join("; ")}</p>
+                    )}
+                    {siteView(site)}
+                    <div className="admin-row-static">
+                      <p className="acct-label">Your judgement</p>
+                      {rated[i] ? (
+                        <p className="acct-meta">{rated[i]}</p>
+                      ) : (
+                        <>
+                          <input
+                            className="input"
+                            placeholder="What's wrong, if anything"
+                            value={ratingNote}
+                            onChange={(e) => setRatingNote(e.target.value)}
+                            maxLength={500}
+                          />
+                          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                            <button type="button" className="btn btn--primary" onClick={() => rate(i, site, "good")}>
+                              Good
+                            </button>
+                            <button type="button" className="btn btn--secondary" onClick={() => rate(i, site, "needs_work")}>
+                              Needs work
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </li>
