@@ -157,3 +157,60 @@ describe("answers by sector", () => {
     expect(r.ok && r.facts.highlights).toEqual([{ value: "Free", label: "Quotes" }]);
   });
 });
+
+describe("the massage, fitness and holiday let templates", () => {
+  const { MASSAGE_PRESET, FITNESS_PRESET, HOLIDAY_LET_PRESET } = { MASSAGE_PRESET: SECTOR_PRESETS.massage, FITNESS_PRESET: SECTOR_PRESETS.fitness, HOLIDAY_LET_PRESET: SECTOR_PRESETS["holiday-let"] };
+  const copyFor = (headline: string) => {
+    const p = parseCopy(
+      JSON.stringify({
+        tagline: "t",
+        hero: { headline, intro: "i", cta: "Ask" },
+        headings: { services: "Prices", hours: "Hours", gallery: "Photos", area: "Find us", enquiry: "Ask", faq: "Questions" },
+        descriptions: {},
+        area: "Here.",
+        enquiry: { intro: "Tell us.", cta: "Send" },
+        faq: [],
+        closing: { headline: "Ready?", cta: "Ask" },
+      }),
+    );
+    if (!p.ok) throw new Error(p.reason);
+    return p.copy;
+  };
+
+  it("each is registered under its own id and group", () => {
+    expect(presetFor("massage")).toBe(MASSAGE_PRESET);
+    expect(presetFor("fitness")).toBe(FITNESS_PRESET);
+    expect(presetFor("holiday-let")).toBe(HOLIDAY_LET_PRESET);
+    expect(MASSAGE_PRESET.group).toBe("booking");
+    expect(FITNESS_PRESET.group).toBe("booking");
+    expect(HOLIDAY_LET_PRESET.group).toBe("hospitality");
+  });
+
+  it("the holiday let asks for no opening hours, and checks its places nearby", () => {
+    expect(HOLIDAY_LET_PRESET.sections.map((s) => s.kind)).not.toContain("hours");
+    expect(HOLIDAY_LET_PRESET.sections.find((s) => s.kind === "area")?.required).toBe(true);
+    expect(HOLIDAY_LET_PRESET.areaSource).toBe("areas");
+  });
+
+  it("a massage site may not promise a cure, and a qualification needs the customer's tick", () => {
+    const s = SAMPLES.massage;
+    const cure = assembleSite({ preset: MASSAGE_PRESET, facts: s.facts, look: "warm", colour: "#6d1f2f" } as WriteInput, copyFor("Massage that cures back pain"));
+    expect(checkSite(cure, s.facts, MASSAGE_PRESET).issues.map((i) => i.code)).toContain("restricted-claim");
+    const ticked = { ...s.facts, highlights: [...(s.facts.highlights ?? []), { value: "Qualified", label: "Qualified therapists" }] };
+    const qualified = assembleSite({ preset: MASSAGE_PRESET, facts: ticked, look: "warm", colour: "#6d1f2f" } as WriteInput, copyFor("Qualified massage in Fleetwood"));
+    expect(checkSite(qualified, ticked, MASSAGE_PRESET).issues.map((i) => i.code)).not.toContain("restricted-claim");
+    expect(checkSite(qualified, s.facts, MASSAGE_PRESET).issues.map((i) => i.code)).toContain("restricted-claim");
+  });
+
+  it("a fitness site may not promise a result", () => {
+    const s = SAMPLES.fitness;
+    const promise = assembleSite({ preset: FITNESS_PRESET, facts: s.facts, look: "bold", colour: "#2b2b2b" } as WriteInput, copyFor("Lose 10 kg in 4 weeks"));
+    expect(checkSite(promise, s.facts, FITNESS_PRESET).issues.map((i) => i.code)).toContain("restricted-claim");
+  });
+
+  it("a holiday let may not claim a rating or an award", () => {
+    const s = SAMPLES["holiday-let"];
+    const rated = assembleSite({ preset: HOLIDAY_LET_PRESET, facts: s.facts, look: "minimal", colour: "#1f3a34" } as WriteInput, copyFor("Award-winning stays by the coast"));
+    expect(checkSite(rated, s.facts, HOLIDAY_LET_PRESET).issues.map((i) => i.code)).toContain("restricted-claim");
+  });
+});

@@ -157,10 +157,130 @@ export const SAMPLE_PHYSIO: SiteContent = {
   ],
 };
 
+const massageHours = [
+  { day: "Mon to Fri", open: "10:00", close: "20:00" },
+  { day: "Sat", open: "10:00", close: "16:00" },
+  { day: "Sun", closed: true },
+];
+
+export const SAMPLE_MASSAGE_FACTS: CustomerFacts = {
+  businessName: "Still Waters Massage",
+  services: [
+    { name: "Swedish massage", price: "£55" },
+    { name: "Deep tissue massage", price: "£65" },
+    { name: "Hot stone massage" },
+  ],
+  hours: massageHours,
+  highlights: [{ value: "Couples", label: "Treatment rooms for two" }, { value: "Evening", label: "Slots available" }],
+  phone: "01253 720418",
+  email: "book@stillwaters.example",
+  address: "9 Harbour Street, Fleetwood",
+};
+
+export const SAMPLE_MASSAGE: SiteContent = {
+  business: { name: "Still Waters Massage", tagline: "Massage in Fleetwood", phone: "01253 720418", email: "book@stillwaters.example", address: "9 Harbour Street, Fleetwood" },
+  theme: { colour: "#6d1f2f", look: "warm" },
+  sections: [
+    { kind: "hero", variant: "plain", headline: "Massage on Harbour Street", intro: "Relaxing treatments in a quiet room at Still Waters Massage, Fleetwood.", cta: "Request a treatment" },
+    {
+      kind: "services",
+      heading: "Treatments",
+      items: [
+        { name: "Swedish massage", price: "£55" },
+        { name: "Deep tissue massage", price: "£65" },
+        { name: "Hot stone massage" },
+      ],
+    },
+    { kind: "hours", heading: "Opening hours", items: massageHours },
+    { kind: "facts", items: [{ value: "Couples", label: "Treatment rooms for two" }, { value: "Evening", label: "Slots available" }] },
+    { kind: "area", heading: "Find us", text: "We are at 9 Harbour Street, Fleetwood." },
+    { kind: "enquiry", heading: "Request a treatment", intro: "Tell us which treatment and when suits, and we will reply to confirm.", cta: "Send request", prompt: "What would you like to book?" },
+    { kind: "cta", headline: "Ready to book your treatment?", cta: "Request a treatment" },
+  ],
+};
+
+const fitnessHours = [
+  { day: "Mon to Fri", open: "06:00", close: "21:00" },
+  { day: "Sat", open: "08:00", close: "13:00" },
+  { day: "Sun", closed: true },
+];
+
+export const SAMPLE_FITNESS_FACTS: CustomerFacts = {
+  businessName: "Kettle Works",
+  services: [
+    { name: "Group class", price: "£10" },
+    { name: "One-to-one session", price: "£35" },
+    { name: "Online coaching" },
+  ],
+  hours: fitnessHours,
+  highlights: [{ value: "Beginners", label: "Welcome at every level" }, { value: "Equipment", label: "Provided for you" }],
+  phone: "0161 496 2200",
+  email: "hello@kettleworks.example",
+  address: "4 Mill Lane, Bolton",
+};
+
+export const SAMPLE_FITNESS: SiteContent = {
+  business: { name: "Kettle Works", tagline: "Fitness classes in Bolton", phone: "0161 496 2200", email: "hello@kettleworks.example", address: "4 Mill Lane, Bolton" },
+  theme: { colour: "#2b2b2b", look: "bold" },
+  sections: [
+    { kind: "hero", variant: "plain", headline: "Strength classes in Bolton", intro: "Group classes and one-to-one sessions at Kettle Works, Mill Lane.", cta: "Request a free trial" },
+    {
+      kind: "services",
+      heading: "Classes and sessions",
+      items: [
+        { name: "Group class", price: "£10" },
+        { name: "One-to-one session", price: "£35" },
+        { name: "Online coaching" },
+      ],
+    },
+    { kind: "hours", heading: "Opening hours", items: fitnessHours },
+    { kind: "facts", items: [{ value: "Beginners", label: "Welcome at every level" }, { value: "Equipment", label: "Provided for you" }] },
+    { kind: "area", heading: "Find us", text: "We are at 4 Mill Lane, Bolton." },
+    { kind: "enquiry", heading: "Request a free trial", intro: "Tell us which class or session interests you, and we will reply.", cta: "Send request", prompt: "Which class or session interests you?" },
+    { kind: "cta", headline: "Ready to try a class?", cta: "Request a free trial" },
+  ],
+};
+
+export const SAMPLE_HOLIDAY_LET_FACTS: CustomerFacts = {
+  businessName: "The Old Byre",
+  services: [
+    { name: "Double room", price: "£95" },
+    { name: "Family cottage", price: "£180" },
+    { name: "Studio", price: "£70" },
+  ],
+  highlights: [{ value: "Dogs", label: "Dogs welcome" }, { value: "Parking", label: "On-site parking" }],
+  areas: ["Lytham", "St Annes", "Blackpool"],
+  email: "stay@theoldbyre.example",
+};
+
+export const SAMPLE_HOLIDAY_LET: SiteContent = {
+  business: { name: "The Old Byre", tagline: "Holiday stays near the coast", email: "stay@theoldbyre.example" },
+  theme: { colour: "#1f3a34", look: "minimal" },
+  sections: [
+    { kind: "hero", variant: "plain", headline: "Stay at The Old Byre", intro: "Self-catering rooms and cottages a short drive from the coast.", cta: "Ask about dates" },
+    {
+      kind: "services",
+      heading: "Stays",
+      items: [
+        { name: "Double room", description: "A quiet room with its own bathroom.", price: "£95" },
+        { name: "Family cottage", description: "Room for a family, with a garden.", price: "£180" },
+        { name: "Studio", description: "A small studio with a kitchen.", price: "£70" },
+      ],
+    },
+    { kind: "facts", items: [{ value: "Dogs", label: "Dogs welcome" }, { value: "Parking", label: "On-site parking" }] },
+    { kind: "area", heading: "Nearby", text: "Close to Lytham, St Annes and Blackpool." },
+    { kind: "enquiry", heading: "Ask about dates", intro: "Tell us the dates and how many are coming, and we will reply to confirm.", cta: "Send request", prompt: "When would you like to stay?" },
+    { kind: "cta", headline: "Ready to book a stay?", cta: "Ask about dates" },
+  ],
+};
+
 /** Every sector's sample build, with the facts it was written from. */
 export const SAMPLES: Record<string, { content: SiteContent; facts: CustomerFacts }> = {
   barber: { content: SAMPLE_BARBER, facts: SAMPLE_BARBER_FACTS },
   cafe: { content: SAMPLE_CAFE, facts: SAMPLE_CAFE_FACTS },
   electrician: { content: SAMPLE_ELECTRICIAN, facts: SAMPLE_ELECTRICIAN_FACTS },
   physio: { content: SAMPLE_PHYSIO, facts: SAMPLE_PHYSIO_FACTS },
+  massage: { content: SAMPLE_MASSAGE, facts: SAMPLE_MASSAGE_FACTS },
+  fitness: { content: SAMPLE_FITNESS, facts: SAMPLE_FITNESS_FACTS },
+  "holiday-let": { content: SAMPLE_HOLIDAY_LET, facts: SAMPLE_HOLIDAY_LET_FACTS },
 };
