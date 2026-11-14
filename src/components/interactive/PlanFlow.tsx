@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { depositPence } from "@/lib/deposit";
@@ -63,18 +64,51 @@ export function PlanFlow({ children }: { children: ReactNode }) {
   );
 }
 
-/** The package cards, with the selection held by the flow. */
+/**
+ * The tier cards, laid out and chosen the same way as the plans on the pricing page: a card each, with a button that
+ * picks it and turns the card dark. Each card shows one of our own sites. The selection is held by the flow.
+ */
 export function PackagePicker() {
   const { pkg, setPkg } = useFlow();
   return (
-    <PlanSwiper
-      plans={packagePlanCards}
-      label="Website tiers"
-      selectedId={pkg}
-      onSelect={(id) => {
-        if (isPackage(id)) setPkg(id);
-      }}
-    />
+    <div className="pkg-selector">
+      <ul className="pkg-cards" role="list" aria-label="Website tiers">
+        {packagePlanCards.map((card) => {
+          if (!isPackage(card.id)) return null;
+          const id = card.id;
+          const isSelected = pkg === id;
+          return (
+            <li key={id} className={`pkg-card${isSelected ? " pkg-card--selected inverse" : ""}`} aria-current={isSelected || undefined}>
+              {card.shot && (
+                <figure className="plan__shot">
+                  <Image src={card.shot.src} alt={card.shot.alt} sizes="(min-width: 56rem) 360px, 80vw" placeholder="blur" draggable={false} />
+                  <figcaption>Example of our work: {card.shot.site}</figcaption>
+                </figure>
+              )}
+              <h3 className="pkg-card__name">{card.name}</h3>
+              <p className="pkg-card__price">
+                <span className="pkg-card__unit">from</span>
+                <span className="pkg-card__amount">{card.price}</span>
+              </p>
+              <p className="pkg-card__tagline">{card.summary}</p>
+              <ul className="pkg-card__points" role="list">
+                {(card.includes ?? []).slice(0, 4).map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className={`btn pkg-card__cta ${isSelected ? "btn--primary pkg-card__cta--selected" : "btn--secondary"}`}
+                aria-pressed={isSelected}
+                onClick={() => setPkg(id)}
+              >
+                {isSelected ? `${card.name} selected` : `Choose ${card.name}`}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

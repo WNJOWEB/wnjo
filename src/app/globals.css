@@ -3832,7 +3832,8 @@ body:has(.plan-bar) .sticky-cta {
   letter-spacing: 0.04em;
   color: var(--color-ink-3);
 }
-.plan--inverse .plan__shot figcaption {
+.plan--inverse .plan__shot figcaption,
+.pkg-card--selected .plan__shot figcaption {
   color: var(--color-inverse-ink-2);
 }
 

@@ -91,7 +91,7 @@ export function ProjectRequest({ pages, care }: { pages?: string; care?: string 
           {care && care in CARE_PLANS && (
             <p className="muted">
               {hosting === "none" ? "Hosted by you." : `With ${CARE_PLANS[hosting].label}, ${formatGBP(CARE_PLANS[hosting].monthly)} a month.`}{" "}
-              <Link href="/website-projects#one-off">Change</Link>
+              <Link href="/website-projects#packages">Change</Link>
             </p>
           )}
           <p className="muted">Tell us who you are, then answer a few questions about your website. Nothing to pay yet.</p>

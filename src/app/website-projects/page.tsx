@@ -20,7 +20,7 @@ export default function WebsiteProjectsPage() {
         lede={`A bespoke website from ${formatGBP(ONE_OFF_WEBSITE.from)}, paid up front and yours on full payment.`}
       >
         <div className="btn-row">
-          <Link href="#one-off" className="btn btn--primary">
+          <Link href="#packages" className="btn btn--primary">
             Choose your website
           </Link>
           <Link href="/contact?topic=website" className="btn btn--secondary">
@@ -36,7 +36,7 @@ export default function WebsiteProjectsPage() {
 
       {/* Pick a tier, then hosting; the bar along the bottom carries the choice into the proposal. */}
       <PlanFlow>
-        <section id="one-off" className="section--tight" style={{ paddingTop: 0 }} aria-labelledby="tiers-title">
+        <section id="packages" className="section--tight" style={{ paddingTop: 0 }} aria-labelledby="tiers-title">
           <div className="container container--wide">
             <SectionHead eyebrow="Website projects" title={<span id="tiers-title">Choose your website.</span>} split>
               <p>Starting prices. A written proposal confirms the exact price before you pay anything.</p>
