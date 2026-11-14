@@ -19,6 +19,68 @@ type Approval = { id: string; task_id: string; tool: string; reason: string; arg
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const pounds = (pence: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
+type TemplateTestResult = {
+  model: string;
+  rows: { template: string; passed: number; runs: number; pencePerSite: number; problems: string[] }[];
+  passed: number;
+  total: number;
+  pencePerSite: number;
+};
+
+/** Writes every template with the configured model and shows how many sites pass, and what each costs. */
+function TemplateTest({ client }: { client: SupabaseClient }) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<TemplateTestResult | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const run = async () => {
+    setRunning(true);
+    setNote(null);
+    setResult(null);
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    const res = token
+      ? await fetch("/api/admin/ai/template-test", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ runs: 1 }),
+        }).catch(() => null)
+      : null;
+    setRunning(false);
+    const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
+    if (res?.ok && body && !body.error) setResult(body);
+    else setNote(body?.error ?? "The test couldn't run. Please try again.");
+  };
+
+  return (
+    <div className="admin-row-static">
+      <h3 className="acct-label">Template test</h3>
+      <p className="acct-meta">
+        Writes each template once with the AI and checks the site. It costs a fraction of a penny per template.
+      </p>
+      <button type="button" className="btn btn--secondary" onClick={run} disabled={running}>
+        {running ? "Writing the templates…" : "Run the template test"}
+      </button>
+      {note && <p className="acct-meta">{note}</p>}
+      {result && (
+        <>
+          <p className="acct-meta">
+            {result.model}: {result.passed} of {result.total} sites passed the checks. About {result.pencePerSite}p per site.
+          </p>
+          <ul className="admin-list" role="list">
+            {result.rows.map((r) => (
+              <li key={r.template} className="admin-row-static">
+                {r.template}: {r.passed}/{r.runs} passed, {r.pencePerSite}p
+                {r.problems.length > 0 && <span className="acct-meta"> ({r.problems.join(", ")})</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AiStatus({ client }: { client: SupabaseClient }) {
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [tasks, setTasks] = useState<Task[] | null>(null);
@@ -192,6 +254,7 @@ export function AiStatus({ client }: { client: SupabaseClient }) {
         </div>
       )}
 
+      <TemplateTest client={client} />
       <h3 className="acct-label">Morning briefing</h3>
       {briefing === "loading" && <p className="acct-meta">Loading the briefing…</p>}
       {briefing === null && (

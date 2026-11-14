@@ -85,7 +85,7 @@ The AI is Claude Haiku 5.5 (owner, 14 November 2026). Grok was dropped and its c
 - [ ] Create an Anthropic API key (console.anthropic.com), add credit, and set `ANTHROPIC_API_KEY` in Vercel, production only, marked sensitive. That is the only required setting: the model (Haiku 5.5), low thinking and the prices have defaults. Optional: `AI_MAX_PENCE_PER_BRIEF` (default 300).
 - [x] Run one test website end to end: pay in test mode, check the plan and preview appear in Admin, view the draft, release it, and open it from the customer account. Confirmed by the owner (already done).
 - [ ] Check the model's reply shape against the live service. The code was only tested against a fake.
-- [ ] **Run the template test against Haiku:** `src/lib/site-template/eval.test.ts` (see `docs/AI_QUALITY_PLAN.md`). It reports the pass rate and the cost per site. Needs the Anthropic key.
+- [ ] **Run the template test against Haiku:** on the Admin AI panel, tap "Run the template test". It writes each template once with Haiku and reports how many pass the checks and what each costs. Needs `ANTHROPIC_API_KEY` in Vercel and a redeploy. (Also in `src/lib/site-template/eval.test.ts`, for running on a computer.)
 
 ## Decisions needed from the owner
 - [x] ICO data protection fee: registered and Direct Debit set up (owner, 12 Nov). Application number C2085772. The ICO sends the registration confirmation within three working days, with the registration number.

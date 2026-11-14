@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { providerFromEnv } from "@/lib/ai/agent-runtime";
-import { parseAnswers } from "./answers";
-import { SECTOR_PRESETS } from "./presets";
-import { SAMPLE_ANSWERS } from "./sample";
-import { writeSite } from "./write";
+import { runTemplateTest } from "./template-test";
 
 /**
  * Runs every template through the model that is configured, and reports how often it finishes a site that passes
@@ -26,26 +23,11 @@ describe.skipIf(!enabled)("the configured model, writing every template", () => 
     async () => {
       const provider = providerFromEnv();
       if (!provider) throw new Error("No model is configured. Set ANTHROPIC_API_KEY.");
-      const rows: { template: string; passed: number; runs: number; costPence: number; problems: string[] }[] = [];
-      for (const preset of Object.values(SECTOR_PRESETS)) {
-        const parsed = parseAnswers(SAMPLE_ANSWERS[preset.id], preset, { colour: "#1f3a34" });
-        if (!parsed.ok) throw new Error(`${preset.label}: sample answers not accepted`);
-        const row = { template: preset.label, passed: 0, runs, costPence: 0, problems: [] as string[] };
-        for (let i = 0; i < runs; i++) {
-          const r = await writeSite({ provider, spentPence: 0, maxPence: 300 }, { preset, facts: parsed.facts, look: parsed.look, colour: parsed.colour });
-          row.costPence += r.costPence;
-          if (r.ok) row.passed += 1;
-          else row.problems.push(r.reason, ...(r.issues ?? []).map((x) => x.code));
-        }
-        rows.push(row);
-      }
-      const passed = rows.reduce((n, r) => n + r.passed, 0);
-      const total = rows.reduce((n, r) => n + r.runs, 0);
-      const cost = rows.reduce((n, r) => n + r.costPence, 0);
-      console.log(`\nModel: ${provider.name} ${provider.model}`);
-      console.table(rows.map((r) => ({ template: r.template, passed: `${r.passed}/${r.runs}`, "pence per site": +(r.costPence / r.runs).toFixed(2), problems: [...new Set(r.problems)].join(", ") })));
-      console.log(`Passed ${passed} of ${total} (${Math.round((passed / total) * 100)}%). Average ${(cost / total).toFixed(2)}p per site.\n`);
-      expect(passed / total).toBeGreaterThanOrEqual(minPass);
+      const result = await runTemplateTest(provider, runs);
+      console.log(`\nModel: ${result.model}`);
+      console.table(result.rows.map((r) => ({ template: r.template, passed: `${r.passed}/${r.runs}`, "pence per site": r.pencePerSite, problems: r.problems.join(", ") })));
+      console.log(`Passed ${result.passed} of ${result.total} (${Math.round((result.passed / result.total) * 100)}%). Average ${result.pencePerSite}p per site.\n`);
+      expect(result.passed / result.total).toBeGreaterThanOrEqual(minPass);
     },
     900_000,
   );
