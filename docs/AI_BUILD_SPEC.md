@@ -74,7 +74,7 @@ The owner can always override a failed check when reviewing.
 
 ## Cost
 
-- Hard cap per website, already enforced (default 300p).
+- Hard cap per website, already enforced (default 100p, £1).
 - A build should use one planning call and one writing call per section, with a total target of under 10p.
 - Revisions re-run the writing step only, not planning.
 

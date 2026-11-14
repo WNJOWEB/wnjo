@@ -8,7 +8,7 @@ attached, up to 3 rounds. If it still fails, a person sees the page and the reas
 until a person releases the preview.
 
 ## The money ceiling
-- £10 per website, as a safety net against a runaway loop. It is not a quality target. `DEFAULT_MAX_PENCE_PER_BRIEF` in `src/lib/ai/limits.ts`; `AI_MAX_PENCE_PER_BRIEF` overrides it.
+- £1 per website (owner, 14 November 2026), as a safety net against a runaway loop. It is not a quality target. `DEFAULT_MAX_PENCE_PER_BRIEF` in `src/lib/ai/limits.ts`; `AI_MAX_PENCE_PER_BRIEF` overrides it.
 - Each draft's real cost is logged, so the ceiling can be set from measured spend once the AI is live.
 
 ## Criteria
@@ -38,8 +38,7 @@ To build:
 4. Test against Claude Haiku 5.5 once the key is set, and set the ceiling from the measured cost.
 
 ## Owner decisions
-- Confirm the £10 ceiling.
-- Confirm the word limits for headlines and intros (suggested: headline 12 words, intro 40 words).
+- Decided: the ceiling is £1 a website, and there are no word limits.
 
 ## Making a small model enough (14 November 2026, built)
 The aim is a template good enough that a small, cheap model (Haiku) can finish the website.
@@ -74,8 +73,9 @@ with the reasons, up to three times, and then goes to a person marked failed.
 - **One clear next step:** the top of the page has a next step, and the end of the page says the same thing
   (`cta-missing`, `cta-mismatch`).
 - **Plain English:** no filler phrases (`FILLER_PHRASES`, for example "passionate team", "cutting-edge", "one-stop
-  shop"), and no sentence over 35 words (`filler`, `long-sentence`). The customer's own words are never judged.
-- **Length:** a headline of at most 12 words, and an intro of at most 40 (`too-many-words`). `WORD_LIMITS` in `schema.ts`.
+  shop"). The customer's own words are never judged.
+- **Length:** no word limits (owner, 14 November 2026). Only the character limits the page layout needs apply
+  (`FIELD_LIMITS` in `schema.ts`), so text can't break the design.
 - **Search basics:** the page has an intro, which is its description, and every image has alt text (`no-description`,
   `missing-alt`). There is one headline per page, because a template has one top section. The page title is not
   checked, because a template does not set one yet.
@@ -83,5 +83,5 @@ with the reasons, up to three times, and then goes to a person marked failed.
 - **Copied wording:** any run of 7 words in a row that exactly matches wording listed in `avoid-wording.ts` is
   flagged (`copied-wording`). The list starts empty: paste in a competitor's paragraphs when a customer points at one.
   A run the customer wrote themselves is not counted.
-- **Asked up front:** the prompt states the word limits, the filler to avoid and the no-copying rule, so fewer drafts
-  need another round.
+- **Asked up front:** the prompt states the filler to avoid and the no-copying rule, so fewer drafts need another
+  round.

@@ -6,8 +6,8 @@ import { checkSite, FILLER_PHRASES } from "./checks";
 import { COPY_RUN_WORDS, findCopiedRun } from "./originality";
 import { BARBER_PRESET } from "./presets";
 import { SAMPLES } from "./sample";
-import type { SiteContent } from "./schema";
-import { cutWords, sentencesOf, wordCount, wordsOf } from "./text";
+import { FIELD_LIMITS, type SiteContent } from "./schema";
+import { wordsOf } from "./text";
 import { buildCopyPrompt, defaultCopy, writeSite } from "./write";
 
 const sample = SAMPLES.barber;
@@ -21,12 +21,11 @@ function changed(kind: string, change: (s: Record<string, unknown>) => void): Si
   change(section as unknown as Record<string, unknown>);
   return content;
 }
-const words = (n: number) => Array.from({ length: n }, (_, i) => `word${String.fromCharCode(97 + (i % 26))}`).join(" ");
 
 describe("the limits", () => {
-  it("are three rounds and £10 a website", () => {
+  it("are three rounds and £1 a website", () => {
     expect(MAX_ROUNDS).toBe(3);
-    expect(DEFAULT_MAX_PENCE_PER_BRIEF).toBe(1000);
+    expect(DEFAULT_MAX_PENCE_PER_BRIEF).toBe(100);
   });
   it("start with no wording to avoid, so the check does nothing until some is listed", () => {
     expect(AVOID_WORDING).toEqual([]);
@@ -47,17 +46,6 @@ describe("one clear next step", () => {
   });
 });
 
-describe("short wording", () => {
-  it("allows twelve words in a headline and forty in an intro, and no more", () => {
-    expect(codes(changed("hero", (s) => ((s.headline = words(12)), (s.intro = words(40)))))).not.toContain("too-many-words");
-    expect(codes(changed("hero", (s) => (s.headline = words(13))))).toContain("too-many-words");
-    expect(codes(changed("hero", (s) => (s.intro = words(41))))).toContain("too-many-words");
-  });
-  it("applies to the request form's intro as well", () => {
-    expect(codes(changed("enquiry", (s) => (s.intro = words(41))))).toContain("too-many-words");
-  });
-});
-
 describe("plain English", () => {
   it.each(FILLER_PHRASES.map((p) => [p]))("flags the filler phrase %s, in any case and with hyphens", (phrase) => {
     const content = changed("hero", (s) => (s.intro = `We are a ${phrase.toUpperCase().replace(/ /g, "-")} barber.`));
@@ -68,15 +56,6 @@ describe("plain English", () => {
     const content = changed("hero", (s) => (s.intro = "A passionate team of barbers."));
     expect(codes(content, facts)).not.toContain("filler");
     expect(codes(content)).toContain("filler");
-  });
-  it("flags a sentence of more than 35 words, and allows one of 35", () => {
-    expect(codes(changed("hero", (s) => (s.intro = `${words(36)}.`)))).toContain("long-sentence");
-    expect(codes(changed("hero", (s) => (s.intro = `${words(35)}.`)))).not.toContain("long-sentence");
-    expect(codes(changed("hero", (s) => (s.intro = `${words(20)}. ${words(20)}.`)))).not.toContain("long-sentence");
-  });
-  it("never judges the customer's own long sentence", () => {
-    const long = `${words(38)}.`;
-    expect(codes(changed("hero", (s) => (s.intro = long)), { ...sample.facts, about: long })).not.toContain("long-sentence");
   });
   it("never judges the customer's own service names", () => {
     const facts = { ...sample.facts, services: [{ name: "World class fade", price: "£20" }, ...sample.facts.services.slice(1)] };
@@ -116,15 +95,7 @@ describe("copied wording", () => {
 describe("the helpers", () => {
   it("count words without punctuation, and keep apostrophes", () => {
     expect(wordsOf("Don't panic, it's only hair!")).toEqual(["don't", "panic", "it's", "only", "hair"]);
-    expect(wordCount("")).toBe(0);
-  });
-  it("split sentences", () => {
-    expect(sentencesOf("One. Two? Three!  Four")).toEqual(["One.", "Two?", "Three!", "Four"]);
-  });
-  it("cut to a word limit at the end of a sentence if one fits, otherwise at a word", () => {
-    expect(cutWords("First sentence here. Second sentence here too.", 5)).toBe("First sentence here.");
-    expect(cutWords("one two three four five six seven", 4)).toBe("one two three four");
-    expect(cutWords("short", 40)).toBe("short");
+    expect(wordsOf("")).toEqual([]);
   });
 });
 
@@ -159,24 +130,25 @@ describe("the writer", () => {
     }
   });
 
-  it("asks for short, plain, original wording up front, so fewer drafts need another round", () => {
+  it("asks for plain, original wording up front, so fewer drafts need another round", () => {
     const prompt = buildCopyPrompt(input);
-    expect(prompt).toContain("at most 12 words");
-    expect(prompt).toContain("at most 40 words");
     expect(prompt).toContain("passionate team");
     expect(prompt).toContain("Never copy wording from another website");
   });
 
-  it("keeps our own fallback intro within forty words, even when the customer wrote more", () => {
-    const long = Array.from({ length: 12 }, (_, i) => `Sentence number ${i + 1} is here.`).join(" ");
-    const copy = defaultCopy({ ...input, facts: { ...facts, about: long } });
-    expect(wordCount(copy.hero.intro)).toBeLessThanOrEqual(40);
+  it("sets no limit on words, only the characters the layout can hold", () => {
+    const prompt = buildCopyPrompt(input);
+    expect(prompt).not.toMatch(/at most \d+ words/);
+    const long = `${"A sentence that goes on and on. ".repeat(40)}`;
+    expect(codes(changed("hero", (s) => (s.intro = long.slice(0, 280))))).toEqual([]);
   });
 
-  it("keeps our own fallback headline within twelve words, however many areas a trade lists", () => {
-    const plumbing = SAMPLES.plumbing;
-    const places = ["Leeds", "Wakefield", "Harrogate", "St Helens", "Kingston upon Hull", "Newcastle upon Tyne"];
-    const copy = defaultCopy({ preset: BARBER_PRESET, facts: { ...plumbing.facts, areas: places }, look: "bold", colour: "#2b2b2b" });
-    expect(wordCount(copy.hero.headline)).toBeLessThanOrEqual(12);
+  it("keeps our own fallback wording within the characters the layout holds", () => {
+    const long = Array.from({ length: 30 }, (_, i) => `Sentence number ${i + 1} is here.`).join(" ");
+    const copy = defaultCopy({ ...input, facts: { ...facts, about: long } });
+    expect(copy.hero.intro.length).toBeLessThanOrEqual(FIELD_LIMITS.intro);
+    const places = ["Leeds", "Wakefield", "Harrogate", "St Helens", "Kingston upon Hull", "Newcastle upon Tyne", "Middlesbrough", "Wolverhampton"];
+    const trade = defaultCopy({ preset: BARBER_PRESET, facts: { ...SAMPLES.plumbing.facts, areas: places }, look: "bold", colour: "#2b2b2b" });
+    expect(trade.hero.headline.length).toBeLessThanOrEqual(FIELD_LIMITS.headline);
   });
 });

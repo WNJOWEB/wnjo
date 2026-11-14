@@ -33,9 +33,6 @@ export const FIELD_LIMITS = {
   items: 12,
 } as const;
 
-/** The most words in the places the model writes. Short wording reads better and fits the layouts. */
-export const WORD_LIMITS = { headline: 12, intro: 40, sentence: 35 } as const;
-
 export type ServiceItem = { name: string; description?: string; price?: string };
 export type HoursItem = { day: string; open?: string; close?: string; closed?: boolean };
 export type GalleryImage = { src: string; alt: string };
