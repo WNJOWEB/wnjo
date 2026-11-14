@@ -16,6 +16,24 @@ export type TemplateTestSite = { business: string; passed: boolean; content: Sit
 export type TemplateTestRow = { template: string; passed: number; runs: number; pencePerSite: number; problems: string[]; sites: TemplateTestSite[] };
 export type TemplateTestResult = { model: string; rows: TemplateTestRow[]; passed: number; total: number; pencePerSite: number };
 
+/**
+ * Stand-in photos for the test, so a site shows its pictures. These are our own example photos, closest to each
+ * template; a real customer's photos replace them. They only show the layout.
+ */
+const STANDIN_PHOTOS: Record<string, { hero: string; gallery: string[] }> = {
+  barber: { hero: "/styler/barber-hero.webp", gallery: ["/styler/barber-cut.webp", "/styler/barber-fade.webp", "/styler/barber-shave.webp"] },
+  beauty: { hero: "/styler/barber-hero.webp", gallery: ["/styler/barber-cut.webp", "/styler/barber-fade.webp", "/styler/barber-shave.webp"] },
+  massage: { hero: "/styler/clinic-hero.webp", gallery: ["/styler/clinic-knee.webp", "/styler/clinic-rehab.webp", "/styler/clinic-sports.webp"] },
+  physio: { hero: "/styler/clinic-hero.webp", gallery: ["/styler/clinic-knee.webp", "/styler/clinic-rehab.webp", "/styler/clinic-sports.webp"] },
+  fitness: { hero: "/styler/trades-hero.webp", gallery: ["/styler/trades-fuse.webp", "/styler/trades-rewires.webp", "/styler/trades-testing.webp"] },
+  cafe: { hero: "/styler/cafe-hero.webp", gallery: ["/styler/cafe-plates.webp", "/styler/cafe-sourdough.webp", "/styler/cafe-wine.webp"] },
+  "holiday-let": { hero: "/styler/cafe-hero.webp", gallery: ["/styler/cafe-plates.webp", "/styler/cafe-sourdough.webp", "/styler/cafe-wine.webp"] },
+  electrician: { hero: "/styler/trades-hero.webp", gallery: ["/styler/trades-fuse.webp", "/styler/trades-rewires.webp", "/styler/trades-testing.webp"] },
+  plumbing: { hero: "/styler/trades-hero.webp", gallery: ["/styler/trades-fuse.webp", "/styler/trades-rewires.webp", "/styler/trades-testing.webp"] },
+  building: { hero: "/styler/trades-hero.webp", gallery: ["/styler/trades-fuse.webp", "/styler/trades-rewires.webp", "/styler/trades-testing.webp"] },
+  cleaning: { hero: "/styler/trades-hero.webp", gallery: ["/styler/trades-fuse.webp", "/styler/trades-rewires.webp", "/styler/trades-testing.webp"] },
+};
+
 /** The ids of every template, in the order they are tested. */
 export const TEMPLATE_IDS = Object.keys(SECTOR_PRESETS);
 
@@ -33,7 +51,18 @@ export async function runTemplateTest(provider: AiProvider, runs: number, only?:
       const parsed = parseAnswers(answers, preset, { colour: "#1f3a34" });
       if (!parsed.ok) throw new Error(`${preset.label} (${answers.businessName}): answers not accepted`);
       for (let i = 0; i < count; i++) {
-        const r = await writeSite({ provider, spentPence: 0, maxPence: 300 }, { preset, facts: parsed.facts, look: parsed.look, colour: parsed.colour });
+        const photos = STANDIN_PHOTOS[preset.id];
+        const r = await writeSite(
+          { provider, spentPence: 0, maxPence: 300 },
+          {
+            preset,
+            facts: parsed.facts,
+            look: parsed.look,
+            colour: parsed.colour,
+            heroPhoto: photos?.hero,
+            images: photos?.gallery.map((src, n) => ({ src, alt: `${answers.businessName ?? "Our"} photo ${n + 1}` })),
+          },
+        );
         pence += r.costPence;
         const issues = r.ok ? [] : [r.reason, ...(r.issues ?? []).map((x) => x.code)];
         if (r.ok) row.passed += 1;

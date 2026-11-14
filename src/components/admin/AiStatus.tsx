@@ -27,27 +27,25 @@ const pounds = (pence: number) => new Intl.NumberFormat("en-GB", { style: "curre
 
 type TestSite = { business: string; passed: boolean; content: SiteContent | null; issues: string[] };
 type TemplateTestRow = { template: string; passed: number; runs: number; pencePerSite: number; problems: string[]; sites: TestSite[] };
-type TemplateTestResult = {
-  model: string;
-  rows: TemplateTestRow[];
-  passed: number;
-  total: number;
-  pencePerSite: number;
-};
+type TemplateTestResult = { model: string; rows: TemplateTestRow[] };
 
-/** Writes every template with the configured model and shows how many sites pass, and what each costs. */
+/**
+ * Tests one template at a time: pick it, run it, then open each business it wrote and see the full site, with its
+ * pictures, as a customer would see it.
+ */
 function TemplateTest({ client }: { client: SupabaseClient }) {
+  const [template, setTemplate] = useState(TEMPLATE_IDS[0]);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<TemplateTestResult | null>(null);
+  const [result, setResult] = useState<TemplateTestRow | null>(null);
+  const [model, setModel] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
-  const [openTemplate, setOpenTemplate] = useState<string | null>(null);
-  const [openSite, setOpenSite] = useState<string | null>(null);
+  const [openSite, setOpenSite] = useState<number | null>(null);
 
   const run = async () => {
     setRunning(true);
     setNote(null);
     setResult(null);
+    setOpenSite(null);
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
     if (!token) {
@@ -55,90 +53,53 @@ function TemplateTest({ client }: { client: SupabaseClient }) {
       setNote("Sign in again, then run the test.");
       return;
     }
-    // One template per request, so no single call runs long enough to be cut off.
-    const rows: TemplateTestResult["rows"] = [];
-    let model = "";
-    for (const id of TEMPLATE_IDS) {
-      setProgress(`Writing ${TEMPLATE_LABELS[id] ?? id}, ${rows.length + 1} of ${TEMPLATE_IDS.length}…`);
-      const res = await fetch("/api/admin/ai/template-test", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ runs: 1, template: id }),
-      }).catch(() => null);
-      const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
-      if (!res?.ok || !body || body.error) {
-        setRunning(false);
-        setProgress(null);
-        setNote(body?.error ?? "The test stopped part way. Please try again.");
-        return;
-      }
-      model = body.model;
-      rows.push(...body.rows);
-    }
-    const passed = rows.reduce((n, r) => n + r.passed, 0);
-    const total = rows.reduce((n, r) => n + r.runs, 0);
-    const pence = rows.reduce((n, r) => n + r.pencePerSite * r.runs, 0);
-    setResult({ model, rows, passed, total, pencePerSite: Math.round((pence / total) * 100) / 100 });
-    setProgress(null);
+    const res = await fetch("/api/admin/ai/template-test", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ runs: 1, template }),
+    }).catch(() => null);
+    const body = res ? ((await res.json().catch(() => null)) as (TemplateTestResult & { error?: string }) | null) : null;
     setRunning(false);
+    if (res?.ok && body && !body.error && body.rows[0]) {
+      setModel(body.model);
+      setResult(body.rows[0]);
+    } else {
+      setNote(body?.error ?? "The test couldn't run. Please try again.");
+    }
   };
 
   return (
     <div className="admin-row-static">
       <h3 className="acct-label">Template test</h3>
-      <p className="acct-meta">
-        Writes each template once with the AI and checks the site. It costs a fraction of a penny per template.
-      </p>
-      <button type="button" className="btn btn--secondary" onClick={run} disabled={running}>
-        {running ? "Running…" : "Run the template test"}
+      <p className="acct-meta">Pick one template. It writes a website for each of its four made-up businesses, then you can open any of them.</p>
+      <label className="acct-label" htmlFor="template-pick">Template</label>
+      <select id="template-pick" className="input" value={template} onChange={(e) => setTemplate(e.target.value)} disabled={running}>
+        {TEMPLATE_IDS.map((id) => (
+          <option key={id} value={id}>
+            {TEMPLATE_LABELS[id] ?? id}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="btn btn--secondary" onClick={run} disabled={running} style={{ marginTop: "0.75rem" }}>
+        {running ? "Writing the websites…" : "Run the test for this template"}
       </button>
-      {progress && <p className="acct-meta">{progress}</p>}
       {note && <p className="acct-meta">{note}</p>}
       {result && (
         <>
           <p className="acct-meta">
-            {result.model}: {result.passed} of {result.total} sites passed the checks. About {result.pencePerSite}p per site.
+            {model}: {result.passed} of {result.runs} passed the checks. About {result.pencePerSite}p per site.
           </p>
           <ul className="admin-list" role="list">
-            {result.rows.map((r) => (
-              <li key={r.template} className="admin-row-static">
-                {r.template}: {r.passed}/{r.runs} passed, {r.pencePerSite}p
-                {r.problems.length > 0 && <span className="acct-meta"> ({r.problems.join(", ")})</span>}
-                {r.sites.length > 0 && (
-                  <>
-                    {" "}
-                    <button
-                      type="button"
-                      className="arrow-link"
-                      aria-expanded={openTemplate === r.template}
-                      onClick={() => {
-                        setOpenTemplate(openTemplate === r.template ? null : r.template);
-                        setOpenSite(null);
-                      }}
-                    >
-                      {openTemplate === r.template ? "Hide sites" : "Show sites"}
-                    </button>
-                  </>
-                )}
-                {openTemplate === r.template && (
-                  <ul className="admin-list" role="list">
-                    {r.sites.map((site, i) => {
-                      const key = `${r.template}-${i}`;
-                      return (
-                        <li key={key} className="admin-row-static">
-                          <button type="button" className="arrow-link" onClick={() => setOpenSite(openSite === key ? null : key)}>
-                            {site.business} {site.passed ? "(passed)" : "(not passed)"}
-                          </button>
-                          {!site.passed && site.issues.length > 0 && <p className="acct-meta">{site.issues.join(", ")}</p>}
-                          {openSite === key && site.content && (
-                            <div className="template-preview" style={{ marginTop: "0.75rem", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
-                              <SiteRender content={site.content} />
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
+            {result.sites.map((site, i) => (
+              <li key={i} className="admin-row-static">
+                <button type="button" className="arrow-link" aria-expanded={openSite === i} onClick={() => setOpenSite(openSite === i ? null : i)}>
+                  {site.business} {site.passed ? "(passed)" : "(not passed)"}
+                </button>
+                {!site.passed && site.issues.length > 0 && <p className="acct-meta">{site.issues.join(", ")}</p>}
+                {openSite === i && site.content && (
+                  <div style={{ marginTop: "0.75rem", border: "1px solid var(--color-line)", borderRadius: "12px", overflow: "hidden", background: "#fff" }}>
+                    <SiteRender content={site.content} />
+                  </div>
                 )}
               </li>
             ))}
