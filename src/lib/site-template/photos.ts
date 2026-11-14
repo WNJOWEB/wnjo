@@ -16,8 +16,10 @@ export const photoPath = (ref: string) => ref.slice(PHOTO_SCHEME.length);
 
 /** Photographs only (not SVG logos, documents, or files named like a logo). The first is the hero, the next few the gallery. */
 export function pickPhotos(files: BriefFile[]): { hero?: string; gallery: GalleryImage[] } {
-  const photos = files.filter((f) => PHOTO_TYPES.has(f.type) && !/logo/i.test(f.name));
-  const [first, ...rest] = photos;
+  const photos = files.filter((f) => PHOTO_TYPES.has(f.type) && f.role !== "logo" && !(f.role === undefined && /logo/i.test(f.name)));
+  // The picture the customer marked as the main one leads. Otherwise the first photo does.
+  const chosen = photos.find((f) => f.role === "hero");
+  const [first, ...rest] = chosen ? [chosen, ...photos.filter((f) => f !== chosen)] : photos;
   return {
     ...(first ? { hero: photoRef(first.path) } : {}),
     gallery: rest.slice(0, MAX_GALLERY).map((f) => ({ src: photoRef(f.path), alt: "" })),

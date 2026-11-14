@@ -180,3 +180,40 @@ describe("the writer", () => {
     expect(trade.hero.headline.length).toBeLessThanOrEqual(FIELD_LIMITS.headline);
   });
 });
+
+describe("facts only, and no repeating", () => {
+  const withFaq = (items: { question: string; answer: string }[], facts = sample.facts) => {
+    const content = structuredClone(sample.content);
+    content.sections.splice(content.sections.length - 1, 0, { kind: "faq", heading: "Questions", items });
+    return checkSite(content, facts, BARBER_PRESET).issues.map((i) => i.code);
+  };
+  const facts = { ...sample.facts, about: "We have cut hair on the High Street for twelve years and welcome walk-ins." };
+
+  it("allows six questions and flags seven", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ question: `Question about topic${i}?`, answer: `Topic${i} is covered by walk-ins.` }));
+    expect(withFaq(six, facts)).not.toContain("too-many-items");
+    expect(withFaq([...six, { question: "Another about topicx?", answer: "Topicx walk-ins." }], facts)).toContain("too-many-items");
+  });
+  it("accepts an answer made of the customer's own facts", () => {
+    expect(withFaq([{ question: "Do you take walk-ins?", answer: "Yes, we welcome walk-ins on the High Street." }], facts)).not.toContain("faq-not-from-facts");
+  });
+  it("flags an answer that says things the customer never said", () => {
+    expect(withFaq([{ question: "Are you qualified?", answer: "Our barbers hold advanced diplomas and national awards." }], facts)).toContain("faq-not-from-facts");
+  });
+  it("flags a question that repeats an earlier one", () => {
+    const codes = withFaq(
+      [
+        { question: "Do you take walk-ins?", answer: "Yes, we welcome walk-ins on the High Street." },
+        { question: "Can I walk in?", answer: "Yes, we welcome walk-ins on the High Street." },
+      ],
+      facts,
+    );
+    expect(codes).toContain("faq-repeats");
+  });
+  it("tells the model not to invent, and not to describe services", () => {
+    const prompt = buildCopyPrompt({ preset: BARBER_PRESET, facts, look: "classic", colour: "#1f3a34" });
+    expect(prompt).toContain("Never invent");
+    expect(prompt).toContain("at most six questions");
+    expect(prompt).not.toContain('"descriptions"');
+  });
+});

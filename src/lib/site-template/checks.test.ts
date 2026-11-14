@@ -189,7 +189,7 @@ describe("checkSite", () => {
     c.sections.splice(5, 0, {
       kind: "faq",
       heading: "Questions",
-      items: Array.from({ length: 5 }, (_, i) => ({ question: `Question ${i}?`, answer: "Answer." })),
+      items: Array.from({ length: 7 }, (_, i) => ({ question: `Question ${i}?`, answer: "Answer." })),
     });
     c.sections.splice(3, 0, { kind: "gallery", heading: "The shop", images: [{ src: "a.jpg", alt: "" }] });
     const got = codes(c);

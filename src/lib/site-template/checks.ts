@@ -7,7 +7,7 @@ import type { CustomerFacts, Section, SiteContent } from "./schema";
 import { AVOID_WORDING } from "./avoid-wording";
 import { findCopiedRun } from "./originality";
 import { FIELD_LIMITS, LOOKS, SECTION_KINDS, WORD_LIMITS } from "./schema";
-import { sentencesOf, wordCount } from "./text";
+import { sentencesOf, wordCount, wordsOf } from "./text";
 import type { SectorPreset } from "./presets";
 
 export type CheckIssue = { code: string; message: string; where?: string };
@@ -56,6 +56,16 @@ const MARKUP = /<[a-z/!][^>]*>|https?:\/\/|www\./i;
 const PRICE = /£\s?\d[\d,]*(?:\.\d{1,2})?/g;
 const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const PHONE = /(?:\+44|0)[\d\s()-]{8,14}\d/g;
+
+
+/** Small words that carry no claim, so they never count as invented or as repeated. */
+const SMALL_WORDS = new Set(
+  "a an and are as at be but by can do does for from get got has have how i if in is it its of on or our so that the their them then there these they this to up us we what when where which who will with you your yes no not any all may just also about over out into than too very per each one two".split(" "),
+);
+/** Everyday words an answer may use to talk about opening, booking or getting in touch without claiming anything new. */
+const GENERIC_WORDS = new Set("open opening closed call phone email message book booking request visit welcome contact find located address hours day days time times week weekend monday tuesday wednesday thursday friday saturday sunday morning afternoon evening".split(" "));
+const contentWords = (text: string) => wordsOf(text).filter((w) => !SMALL_WORDS.has(w) && w.length > 1);
+const overlap = (a: string[], b: Set<string>) => (a.length ? a.filter((w) => b.has(w)).length / a.length : 1);
 
 const digits = (s: string) => s.replace(/\D/g, "");
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -237,7 +247,7 @@ export function checkSite(
   for (const [i, s] of content.sections.entries()) {
     if (s.kind === "gallery") s.images.forEach((im, j) => !im.alt.trim() && flag("missing-alt", "Image needs a short description.", `sections[${i}].images[${j}]`));
     if (s.kind === "services" && s.items.length > FIELD_LIMITS.items) flag("too-many-items", `More than ${FIELD_LIMITS.items} services.`, `sections[${i}]`);
-    if (s.kind === "faq" && s.items.length > 4) flag("too-many-items", "More than four FAQ items.", `sections[${i}]`);
+    if (s.kind === "faq" && s.items.length > 6) flag("too-many-items", "More than six FAQ items.", `sections[${i}]`);
     if (s.kind === "facts" && s.items.length > 4) flag("too-many-items", "More than four facts.", `sections[${i}]`);
   }
 
@@ -360,6 +370,38 @@ export function checkSite(
       for (const place of facts.areas ?? []) if (!areaText.includes(norm(place))) flag("area-missing", `The area "${place}" is missing.`, "area");
     }
   }
+
+  // Facts only, and no repeating. An FAQ answer must be made of what the customer told us, and no two items, or an
+  // item and the intro, may say the same thing.
+  const known = new Set(
+    contentWords(
+      [
+        facts.businessName,
+        facts.about ?? "",
+        facts.address ?? "",
+        ...(facts.areas ?? []),
+        ...facts.services.map((x) => x.name),
+        ...(facts.highlights ?? []).map((h) => `${h.value} ${h.label}`),
+        ...(facts.details ?? []).map((d) => `${d.label} ${d.value}`),
+        ...(facts.hours ?? []).map((h) => `${h.day} ${h.open ?? ""} ${h.close ?? ""}`),
+      ].join(" "),
+    ),
+  );
+  const heroIntro = new Set(contentWords(hero && hero.kind === "hero" ? hero.intro : ""));
+  const faqItems = all.flatMap((sec) => (sec.kind === "faq" ? sec.items : []));
+  faqItems.forEach((q, j) => {
+    const words = contentWords(q.answer);
+    const asked = new Set(contentWords(q.question));
+    const unknown = words.filter((w) => !known.has(w) && !asked.has(w) && !GENERIC_WORDS.has(w) && !/^\d+$/.test(w));
+    if (words.length && unknown.length / words.length > 0.4) flag("faq-not-from-facts", `The FAQ answer "${q.answer.slice(0, 50)}" says things the customer didn't (${unknown.slice(0, 3).join(", ")}). Use only their facts.`, `faq[${j}]`);
+    if (heroIntro.size && overlap(words, heroIntro) >= 0.7 && words.length >= 4) flag("faq-repeats", `The FAQ answer "${q.answer.slice(0, 50)}" repeats the intro.`, `faq[${j}]`);
+    faqItems.slice(0, j).forEach((other) => {
+      const a = new Set(contentWords(`${q.question} ${q.answer}`));
+      const b = contentWords(`${other.question} ${other.answer}`);
+      const shared = b.filter((w) => a.has(w)).length;
+      if (b.length >= 4 && shared / Math.min(a.size || 1, b.length) >= 0.6) flag("faq-repeats", `"${q.question}" repeats an earlier question.`, `faq[${j}]`);
+    });
+  });
 
   return { ok: issues.length === 0, issues };
 }

@@ -51,7 +51,7 @@ export const COPY_SYSTEM =
   "give it. No HTML and no links. Reply with one JSON object and nothing else.";
 
 /** The only fields the model writes. Everything else on the site is ours: the facts, and the fixed wording of the template. */
-const BASE_SHAPE = '"tagline": string, "hero": {"headline": string, "intro": string}, "descriptions": {"<service name exactly as given>": string}, "faq": [{"question": string, "answer": string}]';
+const BASE_SHAPE = '"tagline": string, "hero": {"headline": string, "intro": string}, "faq": [{"question": string, "answer": string}]';
 
 /** The reply's shape, with an entry for each page the customer chose after Home. */
 const shapeFor = (pages: readonly PageKind[]): string => {
@@ -85,6 +85,7 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
   // Only the sections the model writes wording for. The rest are fixed wording and facts, put in by our own code.
   const wanted = preset.sections.filter((s) => s.kind === "hero" || s.kind === "faq").map((s) => `- ${s.kind}${s.required ? "" : " (only if the facts support it)"}: ${s.guidance}`);
   return [
+    "These are real businesses' websites. Use only the facts below. Never invent a service, price, qualification, year, number, name, guarantee or claim. If the facts don't say it, leave it out. Do not describe services: the customer's own names and prices are shown as given.",
     `Business: ${facts.businessName}`,
     `Sector: ${preset.label}. Voice: ${preset.voice} Tone: ${LOOK_TONE[input.look]}.`,
     `${preset.itemsLabel}: ${facts.services.map((s) => s.name).join("; ")}`,
@@ -106,8 +107,7 @@ export function buildCopyPrompt(input: WriteInput, retryIssues?: string): string
     `Style example (the [brackets] stand for the customer's own facts: never copy the example and never leave a bracket in): headline "${preset.copy.example.headline}"; intro "${preset.copy.example.intro}"`,
     `Headline: at most ${WORD_LIMITS.headline} words. Intro: at most ${WORD_LIMITS.intro} words. Keep every sentence to ${WORD_LIMITS.sentence} words or fewer.`,
     `Plain English, specific to this business. No filler such as: ${FILLER_PHRASES.map((p) => `"${p}"`).join(", ")}. Never copy wording from another website.`,
-    "FAQ: at most four questions a new customer would ask, answered only from the facts above. Leave the list empty if the facts don't support any.",
-    `Descriptions: one short line per ${preset.itemsLabel === "Menu items" ? "menu item" : "service"}, using only its name. Skip any you can't describe without guessing.`,
+    "FAQ: at most six questions a new customer would ask, each answered only from the facts above. Each must cover something new: never repeat the intro, another answer, or a question already answered. Leave the list empty if the facts don't support any.",
     input.change ? `Apply this change: ${input.change.slice(0, 1000)}` : "",
     retryIssues ? `\nYour last attempt failed these checks:\n${retryIssues}\nFix them.` : "",
     "",
@@ -141,11 +141,8 @@ export function parseCopy(text: string): ParsedCopy {
   const closing = obj(r.closing);
   if (!clean(hero.headline, FIELD_LIMITS.headline)) return { ok: false, reason: "The hero has no headline." };
 
+  // The model never writes a description of a service: the customer's names and prices are all we know about it.
   const descriptions: Record<string, string> = {};
-  for (const [name, text] of Object.entries(obj(r.descriptions))) {
-    const d = clean(text, FIELD_LIMITS.itemText);
-    if (d) descriptions[name] = d;
-  }
   const faq = (Array.isArray(r.faq) ? r.faq : [])
     .map((q) => ({ question: clean(obj(q).question, FIELD_LIMITS.question), answer: clean(obj(q).answer, FIELD_LIMITS.answer) }))
     .filter((q) => q.question && q.answer)

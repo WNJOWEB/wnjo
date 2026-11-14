@@ -80,10 +80,10 @@ describe("assembleSite", () => {
     expect(site.business.phone).toBe("01632 960123");
   });
 
-  it("matches service descriptions to names without caring about case", () => {
+  it("never shows a description of a service, even if the model writes one", () => {
     const site = assembleSite(input, parsed.copy);
     const services = site.sections.find((s) => s.kind === "services");
-    expect(services && services.kind === "services" && services.items.map((i) => i.description)).toEqual(["A cut to suit you.", "Clean and sharp.", undefined, undefined]);
+    expect(services && services.kind === "services" && services.items.every((i) => i.description === undefined)).toBe(true);
   });
 
   it("leaves out optional sections the customer gave nothing for", () => {

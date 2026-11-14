@@ -189,7 +189,7 @@ describe.each(presets.map((p) => [p.label, p] as [string, SectorPreset]))("%s: a
     await writeSite(ctx(p), input);
     expect(prompts[0]).toContain(preset.copy.example.headline);
     expect(prompts[0]).not.toContain('"headings"');
-    expect(prompts[0].length).toBeLessThan(3200);
+    expect(prompts[0].length).toBeLessThan(3800);
   });
 
   it("writes nothing for the customer that claims anything: the fixed wording passes the sector's own claim rules", () => {

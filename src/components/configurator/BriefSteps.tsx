@@ -382,6 +382,22 @@ export function FilesField({
                 <span className="brief-files__size">{sizeLabel(f.size)}</span>
               </span>
               <span className="brief-files__actions">
+                {isImage(f) && (
+                  <select
+                    className="input"
+                    aria-label={`What ${f.name} is for`}
+                    value={f.role ?? ""}
+                    onChange={(e) => {
+                      const role = e.target.value === "logo" || e.target.value === "hero" ? e.target.value : undefined;
+                      // Only one main photo and one logo: choosing it again moves it.
+                      onChange({ files: brief.files.map((x) => ({ ...x, role: x.path === f.path ? role : x.role === role ? undefined : x.role })) });
+                    }}
+                  >
+                    <option value="">Photo</option>
+                    <option value="hero">Main photo</option>
+                    <option value="logo">Logo</option>
+                  </select>
+                )}
                 {canOpen(f) && (
                   <button type="button" className="brief-files__btn" disabled={opening === f.path} onClick={() => void open(f)}>
                     {opening === f.path ? "Opening…" : "View"}

@@ -57,3 +57,17 @@ describe("resolvePhotos", () => {
     expect(r.content.sections[0]).toMatchObject({ kind: "hero", variant: "plain" });
   });
 });
+
+describe("pickPhotos: what the customer says each picture is for", () => {
+  const roled = (name: string, role?: "logo" | "hero") => ({ ...file(name), ...(role ? { role } : {}) });
+  it("puts the photo marked as the main one at the top, and every other photo in the gallery", () => {
+    const r = pickPhotos([roled("a.jpg"), roled("b.jpg", "hero"), roled("c.jpg")]);
+    expect(r.hero).toBe("brief-file:drafts/d/b.jpg");
+    expect(r.gallery.map((g) => g.src)).toEqual(["brief-file:drafts/d/a.jpg", "brief-file:drafts/d/c.jpg"]);
+  });
+  it("leaves out a picture marked as the logo, whatever it is called", () => {
+    const r = pickPhotos([roled("shopfront.jpg", "logo"), roled("a.jpg")]);
+    expect(r.hero).toBe("brief-file:drafts/d/a.jpg");
+    expect(r.gallery).toEqual([]);
+  });
+});
